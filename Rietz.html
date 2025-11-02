@@ -3,16 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – con desplazamiento horizontal</title>
+<title>Regla de Cálculo Rietz – completa e interactiva</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
         display:flex; flex-direction:column; align-items:center; padding:24px; gap:12px;}
   h1{ margin:0; font-size:18px; color:#e8f2ff;}
-  .wrapper{ display:flex; gap:24px; align-items:flex-start; }
-  .scroll-container{ width:1200px; overflow-x:auto; border-radius:12px; background:#101620;
-                     box-shadow:0 6px 30px rgba(0,0,0,0.3); }
-  canvas{ background:#f8fbff; border-radius:10px; display:block; }
+  .wrapper{ display:flex; gap:24px; align-items:flex-start;}
+  canvas{ background:#f8fbff; border-radius:10px; box-shadow:0 6px 30px rgba(0,0,0,.3); display:block;}
   .panel{ width:280px; background:var(--panel-bg); color:#eaf1ff; border-radius:12px; padding:16px;
           box-shadow:0 4px 20px rgba(0,0,0,.3); display:flex; flex-direction:column; gap:8px;}
   .panel h2{ font-size:15px; margin:0 0 6px; text-align:center; color:#5bd4ff;}
@@ -24,25 +22,22 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – con desplazamiento horizontal</h1>
+  <h1>Regla de Cálculo Rietz – completa e interactiva</h1>
   <div class="wrapper">
-    <div class="scroll-container" id="scroll">
-      <canvas id="rule" width="2200" height="940"></canvas>
-    </div>
+    <canvas id="rule" width="1550" height="940"></canvas>
     <div class="panel">
       <h2>Lecturas del pelito</h2>
       <div id="values"></div>
     </div>
   </div>
-  <div class="hint">Puedes mover el pelito o el reglón, y desplazarte horizontalmente para leer los extremos.</div>
+  <div class="hint">Puedes mover el pelito o escribir un valor (ej. en D) para posicionarlo.</div>
 
 <script>
 (() => {
   const canvas=document.getElementById("rule");
   const ctx=canvas.getContext("2d");
-  const scrollBox=document.getElementById("scroll");
   const W=canvas.width, H=canvas.height;
-  const P={ left:120, right:80 };
+  const P={ left:80, right:40 };
   const innerW=W-P.left-P.right;
   const panel=document.getElementById("values");
   const deg2rad = d => d * Math.PI / 180;
@@ -261,42 +256,32 @@
     if(key==='CI') x=xFrom.inv(value);
     else if(key==='A'||key==='K'||key==='L') x=xFrom[key](value);
     else x=xFrom.normal(value);
+
     const lane=lanes.find(l=>l.key===key);
     if(lane?.type==='slide') hairX=clamp(x+slideOffset,hairMin,hairMax);
     else hairX=clamp(x,hairMin,hairMax);
-    scrollIntoView(hairX);
     drawAll();
   }
 
-  // Scroll automático para mantener el pelito visible
-  function scrollIntoView(x){
-    const viewLeft=scrollBox.scrollLeft;
-    const viewRight=viewLeft+scrollBox.clientWidth;
-    if(x-100<viewLeft) scrollBox.scrollTo({left:x-200,behavior:'smooth'});
-    else if(x+100>viewRight) scrollBox.scrollTo({left:x-scrollBox.clientWidth+200,behavior:'smooth'});
-  }
-
-  // Interacción con ratón
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
-    const x=e.clientX-r.left+scrollBox.scrollLeft, y=e.clientY-r.top;
+    const x=e.clientX-r.left, y=e.clientY-r.top;
     if(Math.abs(x-hairX)<10){dragging='hair';}
     else if(y>slideTop&&y<slideBottom){dragging='slide';dragDX=x-slideOffset;}
   });
   canvas.addEventListener('mousemove',e=>{
     if(!dragging)return;
     const r=canvas.getBoundingClientRect();
-    const x=e.clientX-r.left+scrollBox.scrollLeft;
+    const x=e.clientX-r.left;
     if(dragging==='hair') hairX=clamp(x,hairMin,hairMax);
     if(dragging==='slide'){
       slideOffset=clamp(x-dragDX,slideMin,slideMax);
       hairX=clamp(hairX,hairMin,hairMax);
     }
-    scrollIntoView(hairX);
     drawAll();
   });
   window.addEventListener('mouseup',()=>dragging=null);
-  canvas.addEventListener('dblclick',()=>{slideOffset=0;hairX=P.left+innerW*0.6;scrollIntoView(hairX);drawAll();});
+  canvas.addEventListener('dblclick',()=>{slideOffset=0;hairX=P.left+innerW*0.6;drawAll();});
 
   drawAll();
 })();
