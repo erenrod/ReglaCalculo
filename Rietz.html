@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – versión mejorada v2</title>
+<title>Regla de Cálculo Rietz – versión trigonométrica completa</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -20,9 +20,9 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – versión mejorada v2</h1>
+  <h1>Regla de Cálculo Rietz – completa con escalas trigonométricas</h1>
   <div class="wrapper">
-    <canvas id="rule" width="1550" height="880"></canvas>
+    <canvas id="rule" width="1550" height="900"></canvas>
     <div class="panel">
       <h2>Lecturas del pelito</h2>
       <div id="values"></div>
@@ -39,18 +39,19 @@
   const innerW=W-P.left-P.right;
   const panel=document.getElementById("values");
 
-  // Más separación entre L y K; 0 de L bajo la pista; etiquetas fijas para todas
+  const deg2rad = d => d * Math.PI / 180;
+
   const lanes=[
-    { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)',         tickLabelSide:'bottom' },
-    { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)',             tickLabelSide:'bottom' },
-    { key:'A',  y: 230, h:26, type:'fixed', label:'A (x²)',             tickLabelSide:'bottom' },
-    { key:'B',  y: 305, h:26, type:'slide', label:'B (x²)',             tickLabelSide:'bottom' },
-    { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)',           tickLabelSide:'bottom' },
-    { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)',           tickLabelSide:'bottom' },
-    { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)',           tickLabelSide:'bottom' },
-    { key:'S',  y: 615, h:26, type:'fixed', label:'S (sin)',            tickLabelSide:'bottom' },
-    { key:'ST', y: 675, h:26, type:'fixed', label:'ST (sen pequeñas)',  tickLabelSide:'bottom' },
-    { key:'T',  y: 735, h:26, type:'fixed', label:'T (tan)',            tickLabelSide:'bottom' },
+    { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)' },
+    { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)' },
+    { key:'A',  y: 230, h:26, type:'fixed', label:'A (x²)' },
+    { key:'B',  y: 305, h:26, type:'slide', label:'B (x²)' },
+    { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)' },
+    { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)' },
+    { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)' },
+    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin)' },
+    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeñas)' },
+    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan)' },
   ];
 
   let slideOffset=0;
@@ -61,18 +62,30 @@
   const pow10=x=>Math.pow(10,x);
 
   const xFrom={
-    normal: v=>P.left+log10(v)*innerW,              // C,D
-    inv:    v=>P.left+(1-log10(v))*innerW,          // CI
-    A:      v=>P.left+(log10(v)/2)*innerW,          // A,B
-    K:      v=>P.left+(log10(v)/3)*innerW,          // K
-    L:      v=>P.left+log10(v)*innerW,              // L (usa v=10^t)
+    normal: v=>P.left+log10(v)*innerW,
+    inv:    v=>P.left+(1-log10(v))*innerW,
+    A:      v=>P.left+(log10(v)/2)*innerW,
+    K:      v=>P.left+(log10(v)/3)*innerW,
+    L:      v=>P.left+log10(v)*innerW,
+    S:      θ=>P.left+log10(Math.sin(deg2rad(θ)))*innerW,  // 5°–90°
+    ST:     θ=>P.left+log10(deg2rad(θ))*innerW,            // 0.57°–5.7°
+    T:      θ=>P.left+log10(Math.tan(deg2rad(θ)))*innerW,  // 5°–45°
   };
+
   const valFrom={
     normal: x=>pow10((x-P.left)/innerW),
     inv:    x=>1/pow10((x-P.left)/innerW),
     A:      x=>Math.pow(10,2*(x-P.left)/innerW),
     K:      x=>Math.pow(10,3*(x-P.left)/innerW),
-    L:      x=>(x-P.left)/innerW, // devuelve t en [0,1] tal que v=10^t
+    L:      x=>(x-P.left)/innerW,
+    // inversas aproximadas (sólo lectura)
+    S:      x=>{ // busca θ s.t. sinθ=10^t
+      const t=(x-P.left)/innerW;
+      const target=pow10(t);
+      return (Math.asin(Math.min(target,1))*180/Math.PI).toFixed(2);
+    },
+    ST:     x=>{ const t=(x-P.left)/innerW; const rad=pow10(t); return (rad*180/Math.PI).toFixed(3); },
+    T:      x=>{ const t=(x-P.left)/innerW; const tanv=pow10(t); return (Math.atan(tanv)*180/Math.PI).toFixed(2); },
   };
 
   function drawAll(){
@@ -80,7 +93,7 @@
     drawFixedBody();
     drawSlideBody();
     drawHair();
-    drawLabelsFixed();     // ← etiquetas SIEMPRE fijas (incluye B, CI, C)
+    drawLabels();
     updateReadouts();
   }
 
@@ -129,22 +142,19 @@
       if(label!==undefined){
         ctx.font='11px system-ui';
         ctx.textAlign='center';
-        ctx.textBaseline=lane.tickLabelSide==='bottom'?'top':'alphabetic';
-        const ly=lane.tickLabelSide==='bottom'?bottom+2:top-4;
-        ctx.fillText(label,x+slideX,ly);
+        ctx.textBaseline='top';
+        ctx.fillText(label,x+slideX,bottom+2);
       }
     };
 
-    // --- todas las escalas con 10 subdivisiones por década ---
     const drawLog=(fnInv=false)=>{
       for(let i=1;i<10;i++){
         const x=fnInv?xFrom.inv(i):xFrom.normal(i);
         drawTick(x,0.8,String(i));
-        // subdivisiones cada 0.1 (i.1..i.9)
         for(let j=1;j<10;j++){
           const val=i+j/10; if(val>=10) break;
           const xs=fnInv?xFrom.inv(val):xFrom.normal(val);
-          drawTick(xs, j%5===0?0.55:0.35);
+          drawTick(xs,j%5===0?0.55:0.35);
         }
       }
     };
@@ -153,36 +163,56 @@
       for(let decade=0;decade<power;decade++){
         const start=Math.pow(10,decade);
         const end=start*10;
-        // marcas enteras 1..9 por década
         for(let i=1;i<10;i++){
           const v=start*i, x=fn(v);
           drawTick(x,0.8,String(v));
-          // subdivisiones décima de década (10 por tramo)
           for(let j=1;j<10;j++){
             const vv=v + j*(start/10);
             if(vv>=end) break;
             const xs=fn(vv);
-            drawTick(xs, j%5===0?0.55:0.35);
+            drawTick(xs,j%5===0?0.55:0.35);
           }
         }
       }
     };
     const drawL=()=>{
-      // L: mayor cada 0.1 (0.0..1.0), menores cada 0.01 entre cada 0.1
       for(let k=0;k<=10;k++){
-        const tMajor=k/10;                     // 0.0..1.0
-        const vMajor=pow10(tMajor);            // 10^t
-        const xMajor=xFrom.L(vMajor);
-        drawTick(xMajor,0.8,tMajor.toFixed(1)); // etiqueta 0.0..1.0 DEBAJO
+        const tMajor=k/10; const vMajor=pow10(tMajor); const xMajor=xFrom.L(vMajor);
+        drawTick(xMajor,0.8,tMajor.toFixed(1));
         if(k<10){
-          // 10 subdivisiones: 0.01, 0.02, ... 0.09
           for(let m=1;m<10;m++){
-            const tSub=tMajor + m/100;       // paso de 0.01
-            const vSub=pow10(tSub);
-            const xSub=xFrom.L(vSub);
-            const isMid = (m===5);
-            drawTick(xSub, isMid?0.55:0.35);
+            const tSub=tMajor + m/100; const vSub=pow10(tSub); const xSub=xFrom.L(vSub);
+            drawTick(xSub,m===5?0.55:0.35);
           }
+        }
+      }
+    };
+    const drawS=()=>{ // 5° a 90°
+      for(let d=5; d<=90; d+=5){
+        const x=xFrom.S(d); drawTick(x,0.8,String(d));
+        for(let j=1;j<5;j++){
+          const dd=d+j; if(dd>=90) break;
+          const xs=xFrom.S(dd);
+          drawTick(xs,j===2?0.55:0.35);
+        }
+      }
+    };
+    const drawST=()=>{ // 0.57° a 5.7°
+      for(let d=0.5; d<=5.5; d+=0.5){
+        const x=xFrom.ST(d); drawTick(x,0.8,d.toFixed(1));
+        for(let j=1;j<5;j++){
+          const dd=d+j*0.1; if(dd>=5.7) break;
+          const xs=xFrom.ST(dd); drawTick(xs,j===2?0.55:0.35);
+        }
+      }
+    };
+    const drawT=()=>{ // 5° a 45°
+      for(let d=5; d<=45; d+=5){
+        const x=xFrom.T(d); drawTick(x,0.8,String(d));
+        for(let j=1;j<5;j++){
+          const dd=d+j; if(dd>=45) break;
+          const xs=xFrom.T(dd);
+          drawTick(xs,j===2?0.55:0.35);
         }
       }
     };
@@ -193,21 +223,22 @@
       case 'A': case 'B': drawAB(2); break;
       case 'K': drawAB(3); break;
       case 'L': drawL(); break;
-      // S/ST/T: pendientes de trigonometría real
+      case 'S': drawS(); break;
+      case 'ST': drawST(); break;
+      case 'T': drawT(); break;
     }
 
     ctx.restore();
   }
 
-  // Etiquetas de nombre SIEMPRE fijas (incluye B, CI, C)
-  function drawLabelsFixed(){
+  function drawLabels(){
     ctx.save();
     ctx.fillStyle='#1b2430';
     ctx.font='bold 12px system-ui';
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     for(const lane of lanes){
       const top=lane.y-lane.h/2;
-      ctx.fillText(lane.label, P.left, top-6);
+      ctx.fillText(lane.label,P.left,top-6);
     }
     ctx.restore();
   }
@@ -228,18 +259,8 @@
     for(const lane of lanes){
       let val=null;
       const xPos=hairX-(lane.type==='slide'?slideOffset:0);
-      switch(lane.key){
-        case 'C': case 'D': val=valFrom.normal(xPos); break;
-        case 'CI': val=valFrom.inv(xPos); break;
-        case 'A': case 'B': val=valFrom.A(xPos); break;
-        case 'K': val=valFrom.K(xPos); break;
-        case 'L': val=valFrom.L(xPos); break;
-        default: val='–';
-      }
-      if(typeof val==='number'){
-        if(lane.key==='L') val=val.toFixed(3);
-        else val=val.toPrecision(6);
-      }
+      if(valFrom[lane.key]) val=valFrom[lane.key](xPos);
+      if(typeof val==='number') val=val.toPrecision(6);
       data.push({name:lane.label,val});
     }
     panel.innerHTML=data.map(d=>`<div class="readout"><span>${d.name}</span><span>${d.val}</span></div>`).join('');
