@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – lecturas corregidas</title>
+<title>Regla de Cálculo Rietz – interactiva</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -11,16 +11,18 @@
   h1{ margin:0; font-size:18px; color:#e8f2ff;}
   .wrapper{ display:flex; gap:24px; align-items:flex-start;}
   canvas{ background:#f8fbff; border-radius:10px; box-shadow:0 6px 30px rgba(0,0,0,.3); display:block;}
-  .panel{ width:260px; background:var(--panel-bg); color:#eaf1ff; border-radius:12px; padding:16px;
+  .panel{ width:280px; background:var(--panel-bg); color:#eaf1ff; border-radius:12px; padding:16px;
           box-shadow:0 4px 20px rgba(0,0,0,.3); display:flex; flex-direction:column; gap:8px;}
   .panel h2{ font-size:15px; margin:0 0 6px; text-align:center; color:#5bd4ff;}
-  .readout{ display:flex; justify-content:space-between; border-bottom:1px solid #27344b; padding:2px 0; font-size:13px;}
-  .readout span{ font-family:monospace; color:#fff;}
+  .readout{ display:flex; justify-content:space-between; align-items:center;
+            border-bottom:1px solid #27344b; padding:2px 0; font-size:13px;}
+  .readout input{ width:90px; background:#0e1725; color:#fff; border:1px solid #324156;
+                  border-radius:6px; padding:2px 4px; font-family:monospace; font-size:13px; text-align:right;}
   .hint{ font-size:13px; color:#9fb1cc; text-align:center;}
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – lecturas corregidas</h1>
+  <h1>Regla de Cálculo Rietz – interactiva</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="900"></canvas>
     <div class="panel">
@@ -28,7 +30,7 @@
       <div id="values"></div>
     </div>
   </div>
-  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito). Doble clic para centrar.</div>
+  <div class="hint">Puedes mover el pelito o escribir un valor en una escala (por ejemplo D) para posicionarlo.</div>
 
 <script>
 (() => {
@@ -40,7 +42,6 @@
   const panel=document.getElementById("values");
   const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
 
-  // posiciones verticales
   const lanes=[
     { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)' },
     { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)' },
@@ -65,7 +66,6 @@
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
-  // Escalas logarítmicas
   const xFrom={
     normal: v=>P.left+log10(clamp(v,1,10))*innerW,
     inv:    v=>P.left+(1-log10(clamp(v,1,10)))*innerW,
@@ -98,7 +98,6 @@
       drawScale(lane,false);
     }
   }
-
   function drawSlideBody(){
     ctx.save();
     ctx.translate(slideOffset,0);
@@ -192,24 +191,43 @@
   }
 
   function updateReadouts(){
-    const data=[];
-    for(const lane of lanes){
-      let xPos=hairX;
-      // para escalas deslizantes, ajustar posición relativa
-      if(lane.type==='slide') xPos=hairX-slideOffset;
-      const valFn=valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
-      const val=valFn?valFn(clamp(xPos,P.left,P.left+innerW)):null;
-      let out='–';
-      if(val!==null){
-        if(lane.key==='L') out=val.toFixed(3);
-        else out=val.toPrecision(6);
-      }
-      data.push({name:lane.label,val:out});
-    }
-    panel.innerHTML=data.map(d=>`<div class="readout"><span>${d.name}</span><span>${d.val}</span></div>`).join('');
+    panel.innerHTML = lanes.map(lane=>{
+      let xPos = (lane.type==='slide')?hairX-slideOffset:hairX;
+      const valFn = valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
+      const val = valFn(clamp(xPos,P.left,P.left+innerW));
+      const valStr = (lane.key==='L')?val.toFixed(3):val.toPrecision(6);
+      return `<div class="readout">
+        <span>${lane.label}</span>
+        <input type="number" step="any" value="${valStr}" data-key="${lane.key}">
+      </div>`;
+    }).join('');
+
+    // Añadir eventos a cada input
+    panel.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('change',()=>{
+        const key = inp.dataset.key;
+        const value = parseFloat(inp.value);
+        if(isNaN(value)) return;
+        moveCursorToValue(key,value);
+      });
+    });
   }
 
-  // Interacción con límites
+  // Función que coloca el pelito según un valor introducido
+  function moveCursorToValue(key,value){
+    let x;
+    if(key==='CI') x = xFrom.inv(value);
+    else if(key==='A'||key==='K'||key==='L') x = xFrom[key](value);
+    else x = xFrom.normal(value);
+
+    // si la escala es deslizante, el valor pertenece al reglón, no al cuerpo
+    const lane = lanes.find(l=>l.key===key);
+    if(lane?.type==='slide') hairX = clamp(x+slideOffset,hairMin,hairMax);
+    else hairX = clamp(x,hairMin,hairMax);
+    drawAll();
+  }
+
+  // Interacción con ratón
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
