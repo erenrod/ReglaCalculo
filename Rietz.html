@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – interactiva</title>
+<title>Regla de Cálculo Rietz – completa e interactiva</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -22,15 +22,15 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – interactiva</h1>
+  <h1>Regla de Cálculo Rietz – completa e interactiva</h1>
   <div class="wrapper">
-    <canvas id="rule" width="1550" height="900"></canvas>
+    <canvas id="rule" width="1550" height="940"></canvas>
     <div class="panel">
       <h2>Lecturas del pelito</h2>
       <div id="values"></div>
     </div>
   </div>
-  <div class="hint">Puedes mover el pelito o escribir un valor en una escala (por ejemplo D) para posicionarlo.</div>
+  <div class="hint">Puedes mover el pelito o escribir un valor (ej. en D) para posicionarlo.</div>
 
 <script>
 (() => {
@@ -40,6 +40,7 @@
   const P={ left:80, right:40 };
   const innerW=W-P.left-P.right;
   const panel=document.getElementById("values");
+  const deg2rad = d => d * Math.PI / 180;
   const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
 
   const lanes=[
@@ -50,6 +51,9 @@
     { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)' },
     { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)' },
     { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)' },
+    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin)' },
+    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeñas)' },
+    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan)' },
   ];
 
   const slideTop=lanes.find(l=>l.key==='B').y-30;
@@ -72,6 +76,9 @@
     A:      v=>P.left+(log10(clamp(v,1,100))/2)*innerW,
     K:      v=>P.left+(log10(clamp(v,1,1000))/3)*innerW,
     L:      v=>P.left+log10(clamp(v,1,10))*innerW,
+    S:      θ=>P.left+log10(clamp(10*Math.sin(deg2rad(θ)),1,10))*innerW,
+    ST:     θ=>P.left+log10(clamp(10*deg2rad(θ),1,10))*innerW,
+    T:      θ=>P.left+log10(clamp(10*Math.tan(deg2rad(θ)),1,10))*innerW,
   };
 
   const valFrom={
@@ -155,14 +162,46 @@
       }
     };
 
-    for(let i=1;i<10;i++){
-      const x=(lane.key==='CI')?xFrom.inv(i):xFrom.normal(i);
-      drawTick(x,0.8,String(i));
-      for(let j=1;j<10;j++){
-        const val=i+j/10; if(val>=10) break;
-        const xs=(lane.key==='CI')?xFrom.inv(val):xFrom.normal(val);
-        drawTick(xs,j%5===0?0.55:0.35);
+    // escalas log10
+    const drawLog=(fnInv=false)=>{
+      for(let i=1;i<10;i++){
+        const x=fnInv?xFrom.inv(i):xFrom.normal(i);
+        drawTick(x,0.8,String(i));
+        for(let j=1;j<10;j++){
+          const val=i+j/10; if(val>=10) break;
+          const xs=fnInv?xFrom.inv(val):xFrom.normal(val);
+          drawTick(xs,j%5===0?0.55:0.35);
+        }
       }
+    };
+    const drawAB=(power)=>{
+      const fn=(v)=>P.left+(log10(clamp(v,1,Math.pow(10,power)))/power)*innerW;
+      for(let decade=0;decade<power;decade++){
+        const start=Math.pow(10,decade);
+        const end=start*10;
+        for(let i=1;i<10;i++){
+          const v=start*i, x=fn(v);
+          drawTick(x,0.8,String(v));
+          for(let j=1;j<10;j++){
+            const vv=v+j*(start/10); if(vv>=end) break;
+            const xs=fn(vv); drawTick(xs,j%5===0?0.55:0.35);
+          }
+        }
+      }
+    };
+    const drawS=()=>{for(let d=5;d<=90;d+=5){const x=xFrom.S(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=90)break;const xs=xFrom.S(dd);drawTick(xs,j===2?0.55:0.35);}}};
+    const drawST=()=>{for(let d=0.5;d<=5.5;d+=0.5){const x=xFrom.ST(d);drawTick(x,0.8,d.toFixed(1));for(let j=1;j<5;j++){const dd=d+j*0.1;if(dd>=5.7)break;const xs=xFrom.ST(dd);drawTick(xs,j===2?0.55:0.35);}}};
+    const drawT=()=>{for(let d=5;d<=45;d+=5){const x=xFrom.T(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=45)break;const xs=xFrom.T(dd);drawTick(xs,j===2?0.55:0.35);}}};
+
+    switch(lane.key){
+      case 'C': case 'D': drawLog(false); break;
+      case 'CI': drawLog(true); break;
+      case 'A': case 'B': drawAB(2); break;
+      case 'K': drawAB(3); break;
+      case 'L': drawLog(false); break;
+      case 'S': drawS(); break;
+      case 'ST': drawST(); break;
+      case 'T': drawT(); break;
     }
     ctx.restore();
   }
@@ -191,7 +230,9 @@
   }
 
   function updateReadouts(){
-    panel.innerHTML = lanes.map(lane=>{
+    // Solo escalas numéricas principales (sin S, ST, T)
+    const showLanes = lanes.filter(l=>!['S','ST','T'].includes(l.key));
+    panel.innerHTML = showLanes.map(lane=>{
       let xPos = (lane.type==='slide')?hairX-slideOffset:hairX;
       const valFn = valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
       const val = valFn(clamp(xPos,P.left,P.left+innerW));
@@ -202,28 +243,26 @@
       </div>`;
     }).join('');
 
-    // Añadir eventos a cada input
+    // campos editables
     panel.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('change',()=>{
-        const key = inp.dataset.key;
-        const value = parseFloat(inp.value);
-        if(isNaN(value)) return;
+        const key=inp.dataset.key;
+        const value=parseFloat(inp.value);
+        if(isNaN(value))return;
         moveCursorToValue(key,value);
       });
     });
   }
 
-  // Función que coloca el pelito según un valor introducido
   function moveCursorToValue(key,value){
     let x;
-    if(key==='CI') x = xFrom.inv(value);
-    else if(key==='A'||key==='K'||key==='L') x = xFrom[key](value);
-    else x = xFrom.normal(value);
+    if(key==='CI') x=xFrom.inv(value);
+    else if(key==='A'||key==='K'||key==='L') x=xFrom[key](value);
+    else x=xFrom.normal(value);
 
-    // si la escala es deslizante, el valor pertenece al reglón, no al cuerpo
-    const lane = lanes.find(l=>l.key===key);
-    if(lane?.type==='slide') hairX = clamp(x+slideOffset,hairMin,hairMax);
-    else hairX = clamp(x,hairMin,hairMax);
+    const lane=lanes.find(l=>l.key===key);
+    if(lane?.type==='slide') hairX=clamp(x+slideOffset,hairMin,hairMax);
+    else hairX=clamp(x,hairMin,hairMax);
     drawAll();
   }
 
@@ -231,8 +270,8 @@
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
-    if(Math.abs(x-hairX)<10){ dragging='hair'; }
-    else if(y>slideTop && y<slideBottom){ dragging='slide'; dragDX=x-slideOffset; }
+    if(Math.abs(x-hairX)<10){dragging='hair';}
+    else if(y>slideTop&&y<slideBottom){dragging='slide';dragDX=x-slideOffset;}
   });
   canvas.addEventListener('mousemove',e=>{
     if(!dragging)return;
