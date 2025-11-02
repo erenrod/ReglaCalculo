@@ -1,548 +1,213 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Regla de Cálculo – Rietz (C/D, A/B, CI/DI, L)</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regla de Cálculo Rietz - Simulador</title>
 <style>
-  :root{
-    --w: 980px;
-    --h: 300px;
-    --bg: #0b0f14;
-    --panel:#0e131a;
-    --ink:#d8e1ea;
-    --muted:#9fb0c0;
-    --accent:#5bd4ff;
-    --accent2:#ffd166;
-    --hair:#ff6b6b;
-    --body:#eef2f7;
-    --slide:#f8fbff;
-    --tick:#1b2430;
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --ink: #dbe7ff;
+    --accent: #5bd4ff;
+    --hair: #ff6b6b;
   }
-  *{box-sizing:border-box}
-  body{
-    margin:0; padding:24px;
-    background: radial-gradient(1200px 800px at 70% -10%, #13202c 0%, var(--bg) 60%) no-repeat, var(--bg);
-    color: var(--ink); font: 15px/1.35 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    display:flex; flex-direction:column; gap:16px; align-items:center;
+  * { box-sizing: border-box; user-select:none; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
   }
-  h1{font-size:18px;margin:0 0 6px 0;color:#e6eef7}
-  .app{width:min(100%, 1024px); display:grid; gap:14px}
-  .panel{
-    background: linear-gradient(180deg, #0f1620, var(--panel));
-    border:1px solid #223145; border-radius:12px; padding:12px;
-    display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:center;
-    box-shadow: 0 1px 0 #213045 inset, 0 10px 40px rgba(0,0,0,.25);
+  h1 { margin: 0; font-size: 18px; }
+  .canvasWrap {
+    background: #f0f3f8;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.35);
   }
-  .panel form{display:flex; gap:8px; flex-wrap:wrap; align-items:end}
-  .panel label{display:flex; flex-direction:column; gap:6px; font-size:12px; color:#b9c7d4}
-  .panel input[type="number"]{
-    width:120px; padding:8px; border-radius:8px; border:1px solid #32465f; background:#0b121a; color:#e5eef6;
+  canvas {
+    display: block;
+    background: #f5f8fc;
   }
-  .panel .btn{
-    padding:8px 12px; border-radius:10px; border:1px solid #2a4058; background:#102034; color:#e7f2ff; cursor:pointer;
-  }
-  .panel .btn:hover{filter:brightness(1.1)}
-  .panel .mode{display:flex; gap:6px; align-items:center}
-  .panel .mode button{padding:6px 10px; border-radius:8px; border:1px solid #2a4058; background:#0f1b2a; color:#cfe6ff; cursor:pointer}
-  .panel .mode button.active{outline:2px solid var(--accent)}
-  .panel .scales{display:flex; gap:12px; flex-wrap:wrap}
-  .panel .scales label{flex-direction:row; align-items:center; gap:6px}
-  .readouts{justify-self:end; display:grid; gap:6px; text-align:right}
-  .readouts .big{font-size:20px; color:#eaf4ff}
-  .canvasWrap{
-    width:100%; overflow:auto; border-radius:14px; border:1px solid #1f2c3d;
-    background:linear-gradient(180deg,#0b0f14 0%,#0f151c 100%);
-    padding:18px;
-  }
-  canvas{
-    display:block; margin:auto; background:transparent;
-  }
-  .hint{font-size:12px; color:#9fb0c0}
-  .kbd{background:#162232; border:1px solid #2b3f56; padding:2px 6px; border-radius:6px; font-size:11px}
+  .hint { color: #9db1cc; font-size: 13px; }
 </style>
 </head>
 <body>
-  <div class="app">
-    <div class="panel">
-      <form id="ops">
-        <div class="mode" id="modeBox">
-          <span>Modo:</span>
-          <button type="button" data-mode="mul" class="active">Multiplicar</button>
-          <button type="button" data-mode="div">Dividir</button>
-        </div>
-        <label>Operando A
-          <input id="opA" type="number" step="any" min="0.001" value="2.5">
-        </label>
-        <label>Operando B
-          <input id="opB" type="number" step="any" min="0.001" value="3.2">
-        </label>
-        <button class="btn" id="place">Colocar en la regla</button>
-        <div class="scales">
-          <label><input type="checkbox" data-scale="A" checked>A</label>
-          <label><input type="checkbox" data-scale="B" checked>B</label>
-          <label><input type="checkbox" data-scale="CI">CI</label>
-          <label><input type="checkbox" data-scale="C" checked>C</label>
-          <label><input type="checkbox" data-scale="D" checked>D</label>
-          <label><input type="checkbox" data-scale="DI">DI</label>
-          <label><input type="checkbox" data-scale="L">L</label>
-        </div>
-      </form>
-      <div class="readouts">
-        <div>Pelito en D: <span id="rdD">–</span></div>
-        <div>Pelito en C: <span id="rdC">–</span></div>
-        <div class="big">Resultado: <span id="result">–</span></div>
-      </div>
-    </div>
-
-    <div class="canvasWrap">
-      <canvas id="rule" width="1100" height="360"></canvas>
-      <div class="hint">
-        Consejo: arrastra el <span class="kbd">reglón móvil</span> (zona clara) para alinear C/B, y mueve el
-        <span class="kbd">pelito</span> (línea roja) para leer. Doble clic en el cuerpo centra todo.
-      </div>
-    </div>
+  <h1>Simulador Regla de Cálculo Rietz</h1>
+  <div class="canvasWrap">
+    <canvas id="rule" width="1300" height="500"></canvas>
   </div>
+  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito) para leer.</div>
 
 <script>
 (() => {
-  // --- Parámetros geométricos ---
   const canvas = document.getElementById('rule');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const P = { left: 60, right: 40, top: 28, bottom: 28 }; // padding exterior
+  const P = { left: 60, right: 40 };
   const innerW = W - P.left - P.right;
 
-  // Bandas verticales de escalas (de arriba a abajo)
+  // Escalas de arriba a abajo
   const lanes = [
-    { key:'A',  y:  50,  h: 28, type:'fixed',  label:'A (x²)'    },
-    { key:'B',  y:  90,  h: 28, type:'slide',  label:'B (x²)'    },
-    { key:'CI', y: 130,  h: 28, type:'slide',  label:'CI (1/x)'  },
-    { key:'C',  y: 170,  h: 28, type:'slide',  label:'C (×, ÷)'  },
-    { key:'D',  y: 210,  h: 28, type:'fixed',  label:'D (×, ÷)'  },
-    { key:'DI', y: 250,  h: 28, type:'fixed',  label:'DI (1/x)'  },
-    { key:'L',  y: 290,  h: 20, type:'fixed',  label:'L (log10)' },
+    { key: 'L',  y: 40,  h: 26, type: 'fixed', label: 'L (log10)' },
+    { key: 'K',  y: 75,  h: 26, type: 'fixed', label: 'K (x³)' },
+    { key: 'A',  y: 110, h: 26, type: 'fixed', label: 'A (x²)' },
+    { key: 'B',  y: 150, h: 26, type: 'slide', label: 'B (x²)' },
+    { key: 'CI', y: 190, h: 26, type: 'slide', label: 'CI (1/x)' },
+    { key: 'C',  y: 230, h: 26, type: 'slide', label: 'C (×, ÷)' },
+    { key: 'D',  y: 270, h: 26, type: 'fixed', label: 'D (×, ÷)' },
+    { key: 'S',  y: 310, h: 26, type: 'fixed', label: 'S (sen)' },
+    { key: 'ST', y: 350, h: 26, type: 'fixed', label: 'ST (sen pequeñas)' },
+    { key: 'T',  y: 390, h: 26, type: 'fixed', label: 'T (tan)' },
   ];
-  const laneByKey = Object.fromEntries(lanes.map(l=>[l.key,l]));
 
-  // Estado de interacción
-  let slideOffset = 0; // px desplazamiento del reglón móvil (C/B/CI)
-  let hairX = P.left + innerW * 0.62; // posición del pelito
-  let dragging = null; // 'slide' | 'hair'
-  let showScale = {A:true,B:true,C:true,D:true,CI:false,DI:false,L:false};
+  let slideOffset = 0;
+  let hairX = P.left + innerW * 0.6;
+  let dragging = null;
+  let dragDX = 0;
 
-  // Utilidades matemáticas
   const log10 = x => Math.log(x)/Math.LN10;
-  const pow10 = x => Math.pow(10,x);
+  const pow10 = x => Math.pow(10, x);
 
-  // Mapeos valor⇄posición para escalas log
-  function xFromValue(v){ // para C/D/A/B/CI/DI (1..10)
-    const t = log10(v);          // 0..1
-    return P.left + t * innerW;  // px
-  }
-  function valueFromX(x){ // inversa en 1..10
-    const t = (x - P.left) / innerW;
-    return pow10(t);
-  }
-  // Escala A/B (cuadrática) recorre 1..100 en dos décadas compactadas a 1..10 en longitud
-  function xFromValueAB(v){ // v en [1..100]
-    return xFromValue(Math.pow(v, 0.5));
-  }
-  function valueFromXAB(x){ // devuelve en [1..100]
-    const r = valueFromX(x);
-    return r*r;
-  }
-  // Escalas invertidas CI/DI (mapear 1/v)
-  function xFromValueInv(v){ // v en [1..10]
-    return xFromValue(1/v);
-  }
-  function valueFromXInv(x){
-    return 1 / valueFromX(x);
-  }
-  // Escala L (lineal en log10(v) de 1..10 -> 0..1)
-  function xFromValueL(v){ // v en [1..10]
-    return xFromValue(v);
-  }
-  function valueFromXL(x){
-    return (x - P.left) / innerW; // 0..1 directamente
+  function xFromValue(v) { return P.left + log10(v) * innerW; }
+  function xFromValueInv(v) { return P.left + (1 - log10(v)) * innerW; }
+  function xFromValueA(v) { return P.left + (log10(v)/2) * innerW; }
+  function xFromValueK(v) { return P.left + (log10(v)/3) * innerW; }
+  function xFromValueL(v) { return P.left + log10(v) * innerW; }
+
+  function drawAll() {
+    ctx.clearRect(0,0,W,H);
+    drawFixedBody();
+    drawSlideBody();
+    drawHair();
   }
 
-  // Dibujo de una pista/escala
-  function drawTrack(y, h, movable=false){
+  function drawFixedBody() {
+    for (const lane of lanes.filter(l=>l.type==='fixed')) {
+      drawTrack(lane.y, lane.h);
+      drawScale(lane);
+    }
+  }
+
+  function drawSlideBody() {
+    const slideTop = lanes.find(l=>l.key==='B').y - 15;
+    const slideBottom = lanes.find(l=>l.key==='C').y + 15;
     ctx.save();
-    const radius = 6;
-    // Base
-    ctx.fillStyle = movable ? '#f5faff' : '#eef3f8';
-    ctx.strokeStyle = '#cfd9e6';
-    roundRect(ctx, 20, y - h/2, W-40, h, radius, true, true);
-    // Textura sutil
-    const grad = ctx.createLinearGradient(0, y-h/2, 0, y+h/2);
-    grad.addColorStop(0, movable ? '#ffffff' : '#f7fbff');
-    grad.addColorStop(1, movable ? '#ecf3fb' : '#e9f0f8');
-    ctx.fillStyle = grad;
-    roundRect(ctx, 22, y - h/2 + 2, W-44, h-4, radius-2, true, false);
+    ctx.translate(slideOffset,0);
+    ctx.fillStyle = '#fefefe';
+    ctx.fillRect(0, slideTop, W, slideBottom - slideTop);
+    for (const lane of lanes.filter(l=>l.type==='slide')) {
+      drawTrack(lane.y, lane.h);
+      drawScale(lane,true);
+    }
     ctx.restore();
   }
 
-  // Dibujo de ticks logarítmicos (1..10)
-  function drawLogTicks(y, h, opts={}){
-    const {
-      slide=false, inv=false, label='', labelEvery=1, labelColor='#1b2430', ink='#1b2430'
-    } = opts;
+  function drawTrack(y,h) {
+    ctx.fillStyle = '#eef3f8';
+    ctx.strokeStyle = '#cfd6e0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(30, y - h/2, W - 60, h, 6);
+    ctx.fill(); ctx.stroke();
+  }
 
+  function drawScale(lane, isSlide=false) {
+    const slideX = isSlide ? slideOffset : 0;
+    const top = lane.y - lane.h/2;
     ctx.save();
-    ctx.strokeStyle = ink;
-    ctx.fillStyle   = ink;
+    ctx.strokeStyle = '#1b2430';
+    ctx.fillStyle = '#1b2430';
     ctx.lineWidth = 1;
 
-    // Décadas 1–10
-    const baseY = y - h/2, top = baseY, bottom = baseY + h;
-    // Ticks principales (1..9)
-    for(let i=1;i<=9;i++){
-      const v = i;
-      const x = (inv? xFromValueInv(v): xFromValue(v)) + (slide? slideOffset:0);
-      tick(x, top, bottom, 0); // 0: principal
-      if(i % labelEvery === 0){
-        ctx.font = '12px system-ui, sans-serif';
-        ctx.textAlign = (i===1)?'left':(i===9?'right':'center');
-        ctx.textBaseline = 'top';
-        ctx.fillText(String(i), x + (i===1?4:(i===9?-4:0)), bottom+2);
+    const drawTick = (x,labelY,label)=>{
+      ctx.beginPath();
+      ctx.moveTo(x+slideX, top);
+      ctx.lineTo(x+slideX, top+lane.h*0.7);
+      ctx.stroke();
+      if(label){
+        ctx.font = '11px system-ui';
+        ctx.textAlign='center';
+        ctx.textBaseline='bottom';
+        ctx.fillText(label, x+slideX, top-2);
+      }
+    };
+
+    if(lane.key==='C' || lane.key==='D'){
+      for(let i=1;i<=10;i++){
+        const x = xFromValue(i);
+        drawTick(x,true,i===10?'1':i);
       }
     }
-    // Subdivisiones (entre m y m+1)
-    for(let m=1;m<10;m++){
-      const major = m;
-      const xMajor = (inv? xFromValueInv(major): xFromValue(major)) + (slide? slideOffset:0);
-      const xNext  = (inv? xFromValueInv(major+1): xFromValue(major+1)) + (slide? slideOffset:0);
-      // marcas en 2..9 (m*1.1, m*1.2... m*1.9)
-      for(let k=2;k<10;k++){
-        const v = major * (k/10 + 1); // p.ej. 1.2, 1.3 ... hasta < (m+1)
-        if(v >= major+1) break;
-        const x = (inv? xFromValueInv(v): xFromValue(v)) + (slide? slideOffset:0);
-        const len = (k===5)? 0.55 : 0.38; // medias y cortas
-        tick(x, top, bottom, len);
-      }
-      // marcas finas extra (log-spaced a 1/100 aprox)
-      for(let j=1;j<10;j++){
-        const v = major * (1 + j/100);
-        if(v >= major+1) break;
-        const x = (inv? xFromValueInv(v): xFromValue(v)) + (slide? slideOffset:0);
-        tick(x, top, bottom, 0.22);
+    if(lane.key==='CI'){
+      for(let i=1;i<=10;i++){
+        const x = xFromValueInv(i);
+        drawTick(x,true,i===10?'1':i);
       }
     }
-
-    // Etiqueta de la escala
-    ctx.fillStyle = labelColor;
-    ctx.font = 'bold 12px system-ui, sans-serif';
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText(label, P.left, top - 6);
-
-    ctx.restore();
-
-    function tick(x, top, bottom, short=0){
-      const Lmain = 0.72, Lmed = 0.52, Lshort = short || 0.32;
-      let y1=top, y2=bottom;
-      if(short===0) { // principal
-        y1 = top; y2 = top + (bottom-top)*Lmain;
-      } else if(short===0.55) { // media
-        y1 = top; y2 = top + (bottom-top)*Lmed;
-      } else { // corta
-        y1 = top; y2 = top + (bottom-top)*Lshort;
+    if(lane.key==='A' || lane.key==='B'){
+      for(let i=1;i<=100;i+=10){
+        const x = xFromValueA(i);
+        drawTick(x,true,i);
       }
-      ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.stroke();
     }
-  }
-
-  // Ticks A/B (1..100 comprimido): etiquetar 1..9 y 10..90
-  function drawABTicks(y, h, opts={}){
-    const { slide=false, label='A/B', which='A' } = opts;
-    ctx.save();
-    const top = y - h/2, bottom = y + h/2;
-    ctx.strokeStyle = '#1b2430'; ctx.fillStyle = '#1b2430'; ctx.lineWidth=1;
-
-    // Décadas: 1..10 y 10..100 (representadas compactadas)
-    // Para etiquetar, mostramos 1..9 y 10..90
-    const labelEvery = 1;
-    // Primer tramo 1..10
-    for(let i=1;i<=9;i++){
-      const x = xFromValueAB(i) + (slide? slideOffset:0);
-      majorTick(x, i);
-      subticks(1,2, xFromValueAB(1)+(slide?slideOffset:0), xFromValueAB(2)+(slide?slideOffset:0));
+    if(lane.key==='K'){
+      for(let i=1;i<=1000;i+=100){
+        const x = xFromValueK(i);
+        drawTick(x,true,i);
+      }
     }
-    // Segundo tramo 10..100
-    for(let i=10;i<=90;i+=10){
-      const x = xFromValueAB(i) + (slide? slideOffset:0);
-      majorTick(x, i);
-    }
-    // Unas subdivisiones aproximadas por década
-    for(let decade=1; decade<=2; decade++){
-      const start = decade===1?1:10;
-      const end = decade===1?10:100;
-      const steps = decade===1?[1.2,1.5,1.8]:[12,15,18,20,25,30,40,50,60,80]; // dispersas
-      for(const v of steps){
-        const val = v;
-        if(val>=end) continue;
-        const x = xFromValueAB(val)+(slide?slideOffset:0);
-        tick(x, 0.45);
+    if(lane.key==='L'){
+      for(let i=1;i<=10;i++){
+        const x = xFromValueL(i);
+        drawTick(x,true,log10(i).toFixed(1));
       }
     }
 
-    // Label
-    ctx.fillStyle = '#1b2430';
-    ctx.font = 'bold 12px system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillText(which==='A'?'A (x²)':'B (x²)', P.left, top-6);
-
-    ctx.restore();
-
-    function majorTick(x, lab){
-      tick(x, 0.72, true);
-      ctx.font='12px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(String(lab), x, bottom+2);
-    }
-    function tick(x, len=0.32, main=false){
-      const top = y - h/2, bottom = y + h/2;
-      const y1 = top, y2 = top + (bottom-top)*len;
-      ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke();
-    }
-    function subticks(m,n,x1,x2){
-      // opcional (no muy denso para no saturar)
-    }
-  }
-
-  function drawL(y, h){
-    ctx.save();
-    const top = y - h/2, bottom = y + h/2;
-    drawTrack(y, h, false);
-    ctx.strokeStyle = '#1b2430'; ctx.fillStyle = '#1b2430'; ctx.lineWidth=1;
-    // 0..1 (log10)
-    for(let i=0;i<=10;i++){
-      const t = i/10;
-      const x = P.left + t*innerW;
-      const len = (i%5===0)?0.7:0.45;
-      const y1= top, y2= top+(bottom-top)*len;
-      ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x,y2); ctx.stroke();
-      if(i%5===0){
-        ctx.font='12px system-ui, sans-serif';
-        ctx.textAlign='center'; ctx.textBaseline='top';
-        ctx.fillText(String(t.toFixed(1)), x, bottom+2);
-      }
-    }
-    ctx.fillStyle='#1b2430';
-    ctx.font='bold 12px system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillText('L (log10)', P.left, top-6);
+    ctx.font='bold 12px system-ui';
+    ctx.textAlign='left';
+    ctx.textBaseline='alphabetic';
+    ctx.fillText(lane.label, P.left, lane.y - lane.h/2 - 4);
     ctx.restore();
   }
 
-  // Pelito (cursor)
-  function drawHair(){
+  function drawHair() {
     ctx.save();
-    // marco transparente
-    ctx.fillStyle = 'rgba(20,30,45,0.08)';
-    roundRect(ctx, hairX-18, 28, 36, H-56, 8, true, false);
-    // línea
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--hair').trim() || '#ff6b6b';
+    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--hair');
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(hairX, 28); ctx.lineTo(hairX, H-28); ctx.stroke();
-    ctx.restore();
-  }
-
-  // Reglón móvil (C/B/CI fondo)
-  function drawSlideBody(){
-    ctx.save();
-    const yTop = 72, yBottom = 232; // cubre B, CI, C
-    const h = yBottom - yTop;
-    ctx.translate(slideOffset, 0);
-    ctx.fillStyle = '#f8fbff';
-    ctx.strokeStyle = '#cbd8e6';
-    roundRect(ctx, 16, yTop, W-32, h, 10, true, true);
-    // sombra/canto
-    const grad = ctx.createLinearGradient(0, yTop, 0, yBottom);
-    grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#e8f0f9');
-    ctx.fillStyle = grad;
-    roundRect(ctx, 18, yTop+2, W-36, h-4, 8, true, false);
-    ctx.restore();
-  }
-
-  // Dibujo principal
-  function drawAll(){
-    ctx.clearRect(0,0,W,H);
-    // Cuerpo fijo (A, D, DI, L)
-    if(showScale.A) { drawTrack(laneByKey.A.y, laneByKey.A.h, false); }
-    if(showScale.D) { drawTrack(laneByKey.D.y, laneByKey.D.h, false); }
-    if(showScale.DI){ drawTrack(laneByKey.DI.y, laneByKey.DI.h, false); }
-    if(showScale.L) { drawL(laneByKey.L.y, laneByKey.L.h); }
-
-    // Cuerpo móvil (fondo) y sus pistas
-    drawSlideBody();
-    if(showScale.B)  { drawTrack(laneByKey.B.y,  laneByKey.B.h, true); }
-    if(showScale.CI) { drawTrack(laneByKey.CI.y, laneByKey.CI.h, true); }
-    if(showScale.C)  { drawTrack(laneByKey.C.y,  laneByKey.C.h, true); }
-
-    // Ticks en cada pista
-    if(showScale.A)  drawABTicks(laneByKey.A.y,  laneByKey.A.h,  { slide:false, which:'A' });
-    if(showScale.B)  drawABTicks(laneByKey.B.y,  laneByKey.B.h,  { slide:true,  which:'B' });
-    if(showScale.CI) drawLogTicks(laneByKey.CI.y, laneByKey.CI.h, { slide:true, inv:true,  label:'CI (1/x)' });
-    if(showScale.C)  drawLogTicks(laneByKey.C.y,  laneByKey.C.h,  { slide:true, inv:false, label:'C (×, ÷)' });
-    if(showScale.D)  drawLogTicks(laneByKey.D.y,  laneByKey.D.h,  { slide:false,inv:false, label:'D (×, ÷)' });
-    if(showScale.DI) drawLogTicks(laneByKey.DI.y, laneByKey.DI.h, { slide:false,inv:true,  label:'DI (1/x)' });
-
-    // Pelito
-    drawHair();
-
-    // Lecturas bajo pelito
-    updateReadouts();
-  }
-
-  // Lecturas mostradas
-  function updateReadouts(){
-    // D siempre mapea 1..10
-    let vD = clamp1to10( valueFromX(hairX) );
-    // C mapea con offset de reglón móvil
-    let xOnSlide = hairX - slideOffset;
-    let vC = clamp1to10( valueFromX(xOnSlide) );
-    // CI si visible usa inversa (info interna por si quieres)
-    // L usa valueFromXL -> 0..1
-
-    document.getElementById('rdD').textContent = fmt(vD);
-    document.getElementById('rdC').textContent = fmt(vC);
-
-    // Resultado teórico según modo (para validar visualmente)
-    const mode = currentMode();
-    const a = Number(document.getElementById('opA').value || 0);
-    const b = Number(document.getElementById('opB').value || 0);
-    if(a>0 && b>0){
-      const res = (mode==='mul') ? (a*b) : (a/b);
-      document.getElementById('result').textContent = sig(res);
-    }else{
-      document.getElementById('result').textContent = '–';
-    }
-  }
-
-  // Colocar automáticamente para multiplicar/dividir (como en una Rietz real)
-  function placeForOperation(a, b, mode){
-    if(!(a>0 && b>0)) return;
-    // 1) Alinear C con D:
-    //    - Multiplicar: colocar "1" de C sobre "A" en D, luego leer "B" en C -> resultado en D.
-    //    - Dividir: colocar "B" en C sobre "A" en D, y leer bajo "1" de C -> resultado en D.
-    const xD_A = xFromValue(normToDecade(a));    // pos en D de A (mantisa 1..10)
-    const xC_1  = xFromValue(1);                 // pos de "1" en C (sin offset)
-    const xC_B  = xFromValue(normToDecade(b));   // pos de B en C (sin offset)
-
-    if(mode==='mul'){
-      slideOffset = xD_A - xC_1;  // 1 de C sobre A de D
-      // Colocamos pelito en B sobre la C
-      hairX = xC_B + slideOffset;
-    }else{ // div
-      slideOffset = xD_A - xC_B;  // B de C sobre A de D
-      hairX = xC_1 + slideOffset; // pelito en "1" de C
-    }
-    // Esto alinea correctamente la lectura en D bajo el pelito.
-    drawAll();
-  }
-
-  // Normaliza un valor a su mantisa en [1..10)
-  function normToDecade(v){
-    if(v<=0){ return 1; }
-    const e = Math.floor(log10(v));
-    return v / Math.pow(10,e);
-  }
-
-  // Interacción: arrastres
-  canvas.addEventListener('mousedown', (e)=>{
-    const {x,y} = mouse(e);
-    // ¿pulsó cerca del pelito?
-    if(Math.abs(x - hairX) < 16){
-      dragging = 'hair'; return;
-    }
-    // ¿pulsó sobre el reglón móvil (zona que cubre B, CI, C)?
-    const slideTop = 72, slideBot = 232;
-    if(y>=slideTop && y<=slideBot){
-      dragging = 'slide';
-      dragDX = x - slideOffset;
-      return;
-    }
-    dragging = null;
-  });
-  let dragDX = 0;
-  canvas.addEventListener('mousemove', (e)=>{
-    if(!dragging) return;
-    const {x} = mouse(e);
-    if(dragging==='hair'){
-      hairX = clamp(x, P.left, P.left+innerW);
-    }else if(dragging==='slide'){
-      slideOffset = x - dragDX;
-      // Limitar el deslizamiento para que no se vaya infinito (margen ancho)
-      const lim = 1.2*innerW;
-      slideOffset = clamp(slideOffset, -lim, lim);
-    }
-    drawAll();
-  });
-  window.addEventListener('mouseup', ()=> dragging=null);
-  // Doble clic para centrar
-  canvas.addEventListener('dblclick', ()=>{
-    slideOffset = 0;
-    hairX = P.left + innerW*0.6;
-    drawAll();
-  });
-
-  // Panel (modo, checks, inputs)
-  document.getElementById('place').addEventListener('click', (e)=>{
-    e.preventDefault();
-    const a = Number(document.getElementById('opA').value || 0);
-    const b = Number(document.getElementById('opB').value || 0);
-    placeForOperation(a, b, currentMode());
-  });
-  // Modo
-  document.getElementById('modeBox').addEventListener('click', (e)=>{
-    const btn = e.target.closest('button[data-mode]');
-    if(!btn) return;
-    const all = [...document.querySelectorAll('#modeBox button')];
-    all.forEach(b=>b.classList.toggle('active', b===btn));
-    // recolocar si hay valores
-    const a = Number(document.getElementById('opA').value || 0);
-    const b = Number(document.getElementById('opB').value || 0);
-    if(a>0 && b>0) placeForOperation(a,b, currentMode());
-  });
-  function currentMode(){
-    const el = document.querySelector('#modeBox button.active');
-    return el?.dataset.mode || 'mul';
-  }
-  // Mostrar/ocultar escalas
-  document.querySelectorAll('.scales input[type="checkbox"]').forEach(chk=>{
-    chk.addEventListener('change', ()=>{
-      showScale[chk.dataset.scale] = chk.checked;
-      drawAll();
-    });
-  });
-
-  // Utils de dibujo
-  function roundRect(ctx, x, y, w, h, r, fill, stroke){
-    if(w<2*r) r=w/2; if(h<2*r) r=h/2;
     ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r);
-    ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r);
-    ctx.arcTo(x,y,x+w,y,r);
-    ctx.closePath();
-    if(fill) ctx.fill();
-    if(stroke) ctx.stroke();
+    ctx.moveTo(hairX, 20);
+    ctx.lineTo(hairX, H - 20);
+    ctx.stroke();
+    ctx.restore();
   }
 
-  // Helpers numéricos y ratón
-  function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
-  function clamp1to10(v){ return clamp(v, 1.0000001, 9.999999); }
-  function mouse(e){
-    const rect = canvas.getBoundingClientRect();
-    return { x: (e.clientX-rect.left), y: (e.clientY-rect.top) };
-  }
-  const fmt = (v)=> (v>0? (v<10? v.toFixed(5).replace(/0+$/,'').replace(/\.$/,''):v.toPrecision(6)) : '–');
-  const sig = (v)=> Number(v).toExponential(6).replace(/e\+?/, 'e');
+  // Interacción
+  canvas.addEventListener('mousedown', e=>{
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    if(Math.abs(x-hairX)<10){ dragging='hair'; }
+    else if(y>120 && y<250){ dragging='slide'; dragDX = x - slideOffset; }
+  });
+  canvas.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    if(dragging==='hair') hairX = Math.min(W-40, Math.max(40,x));
+    if(dragging==='slide') slideOffset = x - dragDX;
+    drawAll();
+  });
+  window.addEventListener('mouseup', ()=>dragging=null);
+  canvas.addEventListener('dblclick', ()=>{
+    slideOffset=0; hairX = P.left + innerW*0.6; drawAll();
+  });
 
-  // Inicial
   drawAll();
 })();
 </script>
