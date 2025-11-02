@@ -3,97 +3,100 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – Precisa</title>
+<title>Regla de Cálculo Rietz – con visor lateral</title>
 <style>
-  :root {
-    --bg: #0d1117;
-    --ink: #0f172a;
-    --hair: #d41111;
-  }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: #dbe7ff;
-    font-family: system-ui, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px;
-    gap: 16px;
-  }
-  h1 { margin: 0; font-size: 18px; color: #e8f2ff; }
-  canvas {
-    background: #f8fbff;
-    border-radius: 10px;
-    box-shadow: 0 6px 30px rgba(0,0,0,0.3);
-    display:block;
-  }
-  .hint { font-size:13px; color:#9fb1cc; }
+  :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
+  body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
+        display:flex; flex-direction:column; align-items:center; padding:24px; gap:12px;}
+  h1{ margin:0; font-size:18px; color:#e8f2ff;}
+  .wrapper{ display:flex; gap:24px; align-items:flex-start;}
+  canvas{ background:#f8fbff; border-radius:10px; box-shadow:0 6px 30px rgba(0,0,0,.3); display:block;}
+  .panel{ width:240px; background:var(--panel-bg); color:#eaf1ff; border-radius:12px; padding:16px;
+          box-shadow:0 4px 20px rgba(0,0,0,.3); display:flex; flex-direction:column; gap:8px;}
+  .panel h2{ font-size:15px; margin:0 0 6px; text-align:center; color:#5bd4ff;}
+  .readout{ display:flex; justify-content:space-between; border-bottom:1px solid #27344b; padding:2px 0; font-size:13px;}
+  .readout span{ font-family:monospace; color:#fff;}
+  .hint{ font-size:13px; color:#9fb1cc; text-align:center;}
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – Simulación Precisa</h1>
-  <canvas id="rule" width="1500" height="800"></canvas>
+  <h1>Regla de Cálculo Rietz – Simulación con visor</h1>
+  <div class="wrapper">
+    <canvas id="rule" width="1500" height="820"></canvas>
+    <div class="panel">
+      <h2>Lecturas del pelito</h2>
+      <div id="values"></div>
+    </div>
+  </div>
   <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito) para leer. Doble clic para centrar.</div>
 
 <script>
 (() => {
-  const canvas = document.getElementById("rule");
-  const ctx = canvas.getContext("2d");
-  const W = canvas.width, H = canvas.height;
-  const P = { left: 80, right: 40 };
-  const innerW = W - P.left - P.right;
+  const canvas=document.getElementById("rule");
+  const ctx=canvas.getContext("2d");
+  const W=canvas.width, H=canvas.height;
+  const P={ left:80, right:40 };
+  const innerW=W-P.left-P.right;
+  const panel=document.getElementById("values");
 
-  // Definición vertical más separada
-  const lanes = [
-    { key:'L',  y:  80, h:26, type:'fixed', label:'L (log₁₀)' },
-    { key:'K',  y: 130, h:26, type:'fixed', label:'K (x³)' },
-    { key:'A',  y: 190, h:26, type:'fixed', label:'A (x²)' },
-    { key:'B',  y: 250, h:26, type:'slide', label:'B (x²)' },
-    { key:'CI', y: 310, h:26, type:'slide', label:'CI (1/x)' },
-    { key:'C',  y: 370, h:26, type:'slide', label:'C (×, ÷)' },
-    { key:'D',  y: 430, h:26, type:'fixed', label:'D (×, ÷)' },
-    { key:'S',  y: 510, h:26, type:'fixed', label:'S (sin)' },
-    { key:'ST', y: 570, h:26, type:'fixed', label:'ST (sen pequeñas)' },
-    { key:'T',  y: 630, h:26, type:'fixed', label:'T (tan)' },
+  // Más separación entre L y K; L con etiquetas arriba, K con etiquetas abajo
+  const lanes=[
+    { key:'L',  y:  80, h:26, type:'fixed', label:'L (log₁₀)',        tickLabelSide:'top'    },
+    { key:'K',  y: 140, h:26, type:'fixed', label:'K (x³)',            tickLabelSide:'bottom' },
+    { key:'A',  y: 200, h:26, type:'fixed', label:'A (x²)',            tickLabelSide:'bottom' },
+    { key:'B',  y: 260, h:26, type:'slide', label:'B (x²)',            tickLabelSide:'bottom' },
+    { key:'CI', y: 320, h:26, type:'slide', label:'CI (1/x)',          tickLabelSide:'bottom' },
+    { key:'C',  y: 380, h:26, type:'slide', label:'C (×, ÷)',          tickLabelSide:'bottom' },
+    { key:'D',  y: 440, h:26, type:'fixed', label:'D (×, ÷)',          tickLabelSide:'bottom' },
+    { key:'S',  y: 520, h:26, type:'fixed', label:'S (sin)',           tickLabelSide:'bottom' },
+    { key:'ST', y: 580, h:26, type:'fixed', label:'ST (sen pequeñas)', tickLabelSide:'bottom' },
+    { key:'T',  y: 640, h:26, type:'fixed', label:'T (tan)',           tickLabelSide:'bottom' },
   ];
 
-  let slideOffset = 0;
-  let hairX = P.left + innerW * 0.6;
-  let dragging = null, dragDX = 0;
+  let slideOffset=0;
+  let hairX=P.left+innerW*0.6;
+  let dragging=null, dragDX=0;
 
-  const log10 = x => Math.log(x) / Math.LN10;
-  const pow10 = x => Math.pow(10, x);
+  const log10=x=>Math.log(x)/Math.LN10;
+  const pow10=x=>Math.pow(10,x);
 
-  const xFrom = {
-    normal: v => P.left + log10(v) * innerW,
-    inv: v => P.left + (1 - log10(v)) * innerW,
-    A: v => P.left + (log10(v) / 2) * innerW,
-    K: v => P.left + (log10(v) / 3) * innerW,
-    L: v => P.left + log10(v) * innerW,
+  const xFrom={
+    normal: v=>P.left+log10(v)*innerW,
+    inv:    v=>P.left+(1-log10(v))*innerW,
+    A:      v=>P.left+(log10(v)/2)*innerW,
+    K:      v=>P.left+(log10(v)/3)*innerW,
+    L:      v=>P.left+log10(v)*innerW,
+  };
+  const valFrom={
+    normal: x=>pow10((x-P.left)/innerW),
+    inv:    x=>1/pow10((x-P.left)/innerW),
+    A:      x=>Math.pow(10,2*(x-P.left)/innerW),
+    K:      x=>Math.pow(10,3*(x-P.left)/innerW),
+    L:      x=>(x-P.left)/innerW, // log10(v)
   };
 
-  function drawAll() {
+  function drawAll(){
     ctx.clearRect(0,0,W,H);
     drawFixedBody();
     drawSlideBody();
     drawHair();
+    updateReadouts();
   }
 
-  function drawFixedBody() {
-    for (const lane of lanes.filter(l=>l.type==='fixed')) {
+  function drawFixedBody(){
+    for(const lane of lanes.filter(l=>l.type==='fixed')){
       drawTrack(lane.y,lane.h);
       drawScale(lane);
     }
   }
-  function drawSlideBody() {
-    const top = lanes.find(l=>l.key==='B').y - 20;
-    const bottom = lanes.find(l=>l.key==='C').y + 20;
+  function drawSlideBody(){
+    const top=lanes.find(l=>l.key==='B').y-20;
+    const bottom=lanes.find(l=>l.key==='C').y+20;
     ctx.save();
     ctx.translate(slideOffset,0);
     ctx.fillStyle='#fefefe';
     ctx.fillRect(0,top,W,bottom-top);
-    for (const lane of lanes.filter(l=>l.type==='slide')) {
+    for(const lane of lanes.filter(l=>l.type==='slide')){
       drawTrack(lane.y,lane.h);
       drawScale(lane,true);
     }
@@ -109,14 +112,15 @@
   }
 
   function drawScale(lane,isSlide=false){
-    const slideX = isSlide ? slideOffset : 0;
-    const top = lane.y - lane.h/2;
-    const bottom = lane.y + lane.h/2;
+    const slideX=isSlide?slideOffset:0;
+    const top=lane.y-lane.h/2;
+    const bottom=lane.y+lane.h/2;
     ctx.save();
     ctx.strokeStyle='#1b2430';
     ctx.fillStyle='#1b2430';
     ctx.lineWidth=1;
 
+    // etiqueta de tick arriba o abajo por escala
     const drawTick=(x,len,label)=>{
       ctx.beginPath();
       ctx.moveTo(x+slideX,top);
@@ -125,55 +129,61 @@
       if(label){
         ctx.font='11px system-ui';
         ctx.textAlign='center';
-        ctx.textBaseline='top';
-        ctx.fillText(label,x+slideX,bottom+2);
+        if(lane.tickLabelSide==='top'){
+          ctx.textBaseline='alphabetic';
+          ctx.fillText(label,x+slideX,top-4);
+        }else{
+          ctx.textBaseline='top';
+          ctx.fillText(label,x+slideX,bottom+2);
+        }
       }
     };
 
-    // Escalas principales
-    const drawLog = (fnInv=false, step=0.1) => {
+    const drawLog=(fnInv=false)=>{
       for(let i=1;i<10;i++){
-        const x = fnInv ? xFrom.inv(i) : xFrom.normal(i);
+        const x=fnInv?xFrom.inv(i):xFrom.normal(i);
         drawTick(x,0.8,String(i));
-        // subdivisiones
         for(let j=1;j<10;j++){
-          const val=i+j/10;
-          if(val>=10)break;
-          const xs = fnInv ? xFrom.inv(val) : xFrom.normal(val);
+          const val=i+j/10; if(val>=10) break;
+          const xs=fnInv?xFrom.inv(val):xFrom.normal(val);
           drawTick(xs, j%5===0?0.55:0.35);
         }
       }
     };
-    const drawAB=(power,step=0.1)=>{
+    const drawAB=(power)=>{
       const fn=(v)=>P.left+(log10(v)/power)*innerW;
-      for(let i=1;i<=Math.pow(10,power);i*=10){
+      for(let decade=1; decade<=power; decade++){
+        const start=Math.pow(10,decade-1), end=Math.pow(10,decade);
         for(let j=1;j<10;j++){
-          const v=i*j;
+          const v=start*j; if(v>=end) continue;
           const x=fn(v);
-          if(x<P.left||x>P.left+innerW)continue;
           drawTick(x, j===1?0.8:(j%5===0?0.55:0.35), j===1?String(v):undefined);
         }
       }
     };
     const drawL=()=>{
-      for(let i=1;i<=10;i++){
-        const x=xFrom.L(i);
-        drawTick(x,0.8,log10(i).toFixed(1));
+      // Mostrar 0.0, 0.1, ..., 1.0 (0 y 1 en extremos)
+      for(let k=0;k<=10;k++){
+        const v=pow10(k/10); // 10^(0..1)
+        const x=xFrom.L(v);
+        const label=(k/10).toFixed(1);
+        drawTick(x,0.8,label);
       }
     };
 
     switch(lane.key){
-      case 'C': case 'D': drawLog(false,0.1); break;
-      case 'CI': drawLog(true,0.1); break;
+      case 'C': case 'D': drawLog(false); break;
+      case 'CI': drawLog(true); break;
       case 'A': case 'B': drawAB(2); break;
       case 'K': drawAB(3); break;
       case 'L': drawL(); break;
-      default: break;
+      // S/ST/T se quedan sin dibujo funcional de momento
     }
 
+    // etiqueta de la escala (nombre)
     ctx.font='bold 12px system-ui';
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-    ctx.fillText(lane.label, P.left, top - 4);
+    ctx.fillText(lane.label, P.left, top-6);
     ctx.restore();
   }
 
@@ -188,15 +198,38 @@
     ctx.restore();
   }
 
+  // --- Visor lateral ---
+  function updateReadouts(){
+    const data=[];
+    for(const lane of lanes){
+      let val=null;
+      const xPos=hairX-(lane.type==='slide'?slideOffset:0);
+      switch(lane.key){
+        case 'C': case 'D': val=valFrom.normal(xPos); break;
+        case 'CI': val=valFrom.inv(xPos); break;
+        case 'A': case 'B': val=valFrom.A(xPos); break;
+        case 'K': val=valFrom.K(xPos); break;
+        case 'L': val=valFrom.L(xPos); break;
+        default: val='–';
+      }
+      if(typeof val==='number'){
+        if(lane.key==='L') val=val.toFixed(3);
+        else val=val.toPrecision(6);
+      }
+      data.push({name:lane.label,val});
+    }
+    panel.innerHTML=data.map(d=>`<div class="readout"><span>${d.name}</span><span>${d.val}</span></div>`).join('');
+  }
+
   // Interacción
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
-    if(Math.abs(x-hairX)<10){dragging='hair';}
-    else if(y>230 && y<400){dragging='slide'; dragDX=x-slideOffset;}
+    if(Math.abs(x-hairX)<10){ dragging='hair'; }
+    else if(y>240 && y<400){ dragging='slide'; dragDX=x-slideOffset; }
   });
   canvas.addEventListener('mousemove',e=>{
-    if(!dragging)return;
+    if(!dragging) return;
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left;
     if(dragging==='hair') hairX=Math.max(40,Math.min(W-40,x));
@@ -204,9 +237,7 @@
     drawAll();
   });
   window.addEventListener('mouseup',()=>dragging=null);
-  canvas.addEventListener('dblclick',()=>{
-    slideOffset=0; hairX=P.left+innerW*0.6; drawAll();
-  });
+  canvas.addEventListener('dblclick',()=>{ slideOffset=0; hairX=P.left+innerW*0.6; drawAll(); });
 
   drawAll();
 })();
