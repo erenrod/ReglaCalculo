@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – versión estable</title>
+<title>Regla de Cálculo Rietz – versión final con límites y guía visual</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – estable (con límites y lecturas correctas)</h1>
+  <h1>Regla de Cálculo Rietz – versión final</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="900"></canvas>
     <div class="panel">
@@ -28,7 +28,7 @@
       <div id="values"></div>
     </div>
   </div>
-  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito) para leer. Doble clic para centrar.</div>
+  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito). Doble clic para centrar.</div>
 
 <script>
 (() => {
@@ -54,6 +54,13 @@
     { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeño)' },
     { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan, 5°–45°)' },
   ];
+
+  const slideTop = lanes.find(l=>l.key==='B').y - 30;
+  const slideBottom = lanes.find(l=>l.key==='C').y + 30;
+  const slideMin = -innerW*0.9;
+  const slideMax = innerW*0.9;
+  const hairMin = P.left;
+  const hairMax = P.left + innerW;
 
   let slideOffset=0;
   let hairX=P.left+innerW*0.6;
@@ -88,6 +95,7 @@
     ctx.clearRect(0,0,W,H);
     drawFixedBody();
     drawSlideBody();
+    drawSlideBoundaries(); // líneas delimitadoras negras
     drawHair();
     drawLabels();
     updateReadouts();
@@ -100,16 +108,30 @@
     }
   }
   function drawSlideBody(){
-    const top=lanes.find(l=>l.key==='B').y-20;
-    const bottom=lanes.find(l=>l.key==='C').y+20;
     ctx.save();
     ctx.translate(slideOffset,0);
+    const top=lanes.find(l=>l.key==='B').y-20;
+    const bottom=lanes.find(l=>l.key==='C').y+20;
     ctx.fillStyle='#fefefe';
     ctx.fillRect(0,top,W,bottom-top);
     for(const lane of lanes.filter(l=>l.type==='slide')){
       drawTrack(lane.y,lane.h);
       drawScale(lane,true);
     }
+    ctx.restore();
+  }
+
+  // líneas negras de delimitación del bloque móvil
+  function drawSlideBoundaries(){
+    ctx.save();
+    ctx.strokeStyle='#000';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(P.left-20,slideTop);
+    ctx.lineTo(W-P.right+20,slideTop);
+    ctx.moveTo(P.left-20,slideBottom);
+    ctx.lineTo(W-P.right+20,slideBottom);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -157,8 +179,7 @@
     const drawAB=(power)=>{
       const fn=(v)=>P.left+(log10(clamp(v,1,Math.pow(10,power)))/power)*innerW;
       for(let decade=0;decade<power;decade++){
-        const start=Math.pow(10,decade);
-        const end=start*10;
+        const start=Math.pow(10,decade), end=start*10;
         for(let i=1;i<10;i++){
           const v=start*i, x=fn(v);
           drawTick(x,0.8,String(v));
@@ -225,7 +246,7 @@
     const data=[];
     for(const lane of lanes){
       let val=null;
-      const xPos=hairX-(lane.type==='slide'?slideOffset:0);
+      const xPos=clamp(hairX-(lane.type==='slide'?slideOffset:0),P.left,P.left+innerW);
       if(valFrom[lane.key]) val=valFrom[lane.key](xPos);
       if(typeof val==='number'){
         if(['S','T','ST'].includes(lane.key)) val=val.toFixed(2)+'°';
@@ -238,23 +259,21 @@
   }
 
   // --- Interacción con límites ---
-  const slideMin=-innerW*0.9, slideMax=innerW*0.9;
-
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
     if(Math.abs(x-hairX)<10){ dragging='hair'; }
-    else if(y>(lanes.find(l=>l.key==='B').y-30) && y<(lanes.find(l=>l.key==='C').y+30)){
-      dragging='slide'; dragDX=x-slideOffset;
-    }
+    else if(y>slideTop && y<slideBottom){ dragging='slide'; dragDX=x-slideOffset; }
   });
   canvas.addEventListener('mousemove',e=>{
     if(!dragging)return;
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left;
-    if(dragging==='hair') hairX=clamp(x,40,W-40);
+    if(dragging==='hair') hairX=clamp(x,hairMin,hairMax);
     if(dragging==='slide'){
       slideOffset=clamp(x-dragDX,slideMin,slideMax);
+      // Si el reglón llega a los extremos, limita también el pelito al rango visible
+      hairX=clamp(hairX,hairMin,hairMax);
     }
     drawAll();
   });
