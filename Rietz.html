@@ -3,83 +3,75 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz - Simulador</title>
+<title>Regla de Cálculo Rietz – Precisa</title>
 <style>
   :root {
     --bg: #0d1117;
-    --panel: #161b22;
-    --ink: #dbe7ff;
-    --accent: #5bd4ff;
-    --hair: #ff6b6b;
+    --ink: #0f172a;
+    --hair: #d41111;
   }
-  * { box-sizing: border-box; user-select:none; }
   body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: system-ui, sans-serif;
     margin: 0;
-    padding: 20px;
+    background: var(--bg);
+    color: #dbe7ff;
+    font-family: system-ui, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 24px;
     gap: 16px;
   }
-  h1 { margin: 0; font-size: 18px; }
-  .canvasWrap {
-    background: #f0f3f8;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 6px 30px rgba(0,0,0,0.35);
-  }
+  h1 { margin: 0; font-size: 18px; color: #e8f2ff; }
   canvas {
-    display: block;
-    background: #f5f8fc;
+    background: #f8fbff;
+    border-radius: 10px;
+    box-shadow: 0 6px 30px rgba(0,0,0,0.3);
+    display:block;
   }
-  .hint { color: #9db1cc; font-size: 13px; }
+  .hint { font-size:13px; color:#9fb1cc; }
 </style>
 </head>
 <body>
-  <h1>Simulador Regla de Cálculo Rietz</h1>
-  <div class="canvasWrap">
-    <canvas id="rule" width="1300" height="500"></canvas>
-  </div>
-  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito) para leer.</div>
+  <h1>Regla de Cálculo Rietz – Simulación Precisa</h1>
+  <canvas id="rule" width="1500" height="800"></canvas>
+  <div class="hint">Arrastra el reglón móvil (B, CI, C). Mueve la línea roja (pelito) para leer. Doble clic para centrar.</div>
 
 <script>
 (() => {
-  const canvas = document.getElementById('rule');
-  const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById("rule");
+  const ctx = canvas.getContext("2d");
   const W = canvas.width, H = canvas.height;
-  const P = { left: 60, right: 40 };
+  const P = { left: 80, right: 40 };
   const innerW = W - P.left - P.right;
 
-  // Escalas de arriba a abajo
+  // Definición vertical más separada
   const lanes = [
-    { key: 'L',  y: 40,  h: 26, type: 'fixed', label: 'L (log10)' },
-    { key: 'K',  y: 75,  h: 26, type: 'fixed', label: 'K (x³)' },
-    { key: 'A',  y: 110, h: 26, type: 'fixed', label: 'A (x²)' },
-    { key: 'B',  y: 150, h: 26, type: 'slide', label: 'B (x²)' },
-    { key: 'CI', y: 190, h: 26, type: 'slide', label: 'CI (1/x)' },
-    { key: 'C',  y: 230, h: 26, type: 'slide', label: 'C (×, ÷)' },
-    { key: 'D',  y: 270, h: 26, type: 'fixed', label: 'D (×, ÷)' },
-    { key: 'S',  y: 310, h: 26, type: 'fixed', label: 'S (sen)' },
-    { key: 'ST', y: 350, h: 26, type: 'fixed', label: 'ST (sen pequeñas)' },
-    { key: 'T',  y: 390, h: 26, type: 'fixed', label: 'T (tan)' },
+    { key:'L',  y:  80, h:26, type:'fixed', label:'L (log₁₀)' },
+    { key:'K',  y: 130, h:26, type:'fixed', label:'K (x³)' },
+    { key:'A',  y: 190, h:26, type:'fixed', label:'A (x²)' },
+    { key:'B',  y: 250, h:26, type:'slide', label:'B (x²)' },
+    { key:'CI', y: 310, h:26, type:'slide', label:'CI (1/x)' },
+    { key:'C',  y: 370, h:26, type:'slide', label:'C (×, ÷)' },
+    { key:'D',  y: 430, h:26, type:'fixed', label:'D (×, ÷)' },
+    { key:'S',  y: 510, h:26, type:'fixed', label:'S (sin)' },
+    { key:'ST', y: 570, h:26, type:'fixed', label:'ST (sen pequeñas)' },
+    { key:'T',  y: 630, h:26, type:'fixed', label:'T (tan)' },
   ];
 
   let slideOffset = 0;
   let hairX = P.left + innerW * 0.6;
-  let dragging = null;
-  let dragDX = 0;
+  let dragging = null, dragDX = 0;
 
-  const log10 = x => Math.log(x)/Math.LN10;
+  const log10 = x => Math.log(x) / Math.LN10;
   const pow10 = x => Math.pow(10, x);
 
-  function xFromValue(v) { return P.left + log10(v) * innerW; }
-  function xFromValueInv(v) { return P.left + (1 - log10(v)) * innerW; }
-  function xFromValueA(v) { return P.left + (log10(v)/2) * innerW; }
-  function xFromValueK(v) { return P.left + (log10(v)/3) * innerW; }
-  function xFromValueL(v) { return P.left + log10(v) * innerW; }
+  const xFrom = {
+    normal: v => P.left + log10(v) * innerW,
+    inv: v => P.left + (1 - log10(v)) * innerW,
+    A: v => P.left + (log10(v) / 2) * innerW,
+    K: v => P.left + (log10(v) / 3) * innerW,
+    L: v => P.left + log10(v) * innerW,
+  };
 
   function drawAll() {
     ctx.clearRect(0,0,W,H);
@@ -90,122 +82,130 @@
 
   function drawFixedBody() {
     for (const lane of lanes.filter(l=>l.type==='fixed')) {
-      drawTrack(lane.y, lane.h);
+      drawTrack(lane.y,lane.h);
       drawScale(lane);
     }
   }
-
   function drawSlideBody() {
-    const slideTop = lanes.find(l=>l.key==='B').y - 15;
-    const slideBottom = lanes.find(l=>l.key==='C').y + 15;
+    const top = lanes.find(l=>l.key==='B').y - 20;
+    const bottom = lanes.find(l=>l.key==='C').y + 20;
     ctx.save();
     ctx.translate(slideOffset,0);
-    ctx.fillStyle = '#fefefe';
-    ctx.fillRect(0, slideTop, W, slideBottom - slideTop);
+    ctx.fillStyle='#fefefe';
+    ctx.fillRect(0,top,W,bottom-top);
     for (const lane of lanes.filter(l=>l.type==='slide')) {
-      drawTrack(lane.y, lane.h);
+      drawTrack(lane.y,lane.h);
       drawScale(lane,true);
     }
     ctx.restore();
   }
 
-  function drawTrack(y,h) {
-    ctx.fillStyle = '#eef3f8';
-    ctx.strokeStyle = '#cfd6e0';
-    ctx.lineWidth = 1;
+  function drawTrack(y,h){
+    ctx.fillStyle='#eef3f8';
+    ctx.strokeStyle='#cfd6e0';
     ctx.beginPath();
-    ctx.roundRect(30, y - h/2, W - 60, h, 6);
+    ctx.roundRect(40,y-h/2,W-80,h,6);
     ctx.fill(); ctx.stroke();
   }
 
-  function drawScale(lane, isSlide=false) {
+  function drawScale(lane,isSlide=false){
     const slideX = isSlide ? slideOffset : 0;
     const top = lane.y - lane.h/2;
+    const bottom = lane.y + lane.h/2;
     ctx.save();
-    ctx.strokeStyle = '#1b2430';
-    ctx.fillStyle = '#1b2430';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle='#1b2430';
+    ctx.fillStyle='#1b2430';
+    ctx.lineWidth=1;
 
-    const drawTick = (x,labelY,label)=>{
+    const drawTick=(x,len,label)=>{
       ctx.beginPath();
-      ctx.moveTo(x+slideX, top);
-      ctx.lineTo(x+slideX, top+lane.h*0.7);
+      ctx.moveTo(x+slideX,top);
+      ctx.lineTo(x+slideX,top+lane.h*len);
       ctx.stroke();
       if(label){
-        ctx.font = '11px system-ui';
+        ctx.font='11px system-ui';
         ctx.textAlign='center';
-        ctx.textBaseline='bottom';
-        ctx.fillText(label, x+slideX, top-2);
+        ctx.textBaseline='top';
+        ctx.fillText(label,x+slideX,bottom+2);
       }
     };
 
-    if(lane.key==='C' || lane.key==='D'){
+    // Escalas principales
+    const drawLog = (fnInv=false, step=0.1) => {
+      for(let i=1;i<10;i++){
+        const x = fnInv ? xFrom.inv(i) : xFrom.normal(i);
+        drawTick(x,0.8,String(i));
+        // subdivisiones
+        for(let j=1;j<10;j++){
+          const val=i+j/10;
+          if(val>=10)break;
+          const xs = fnInv ? xFrom.inv(val) : xFrom.normal(val);
+          drawTick(xs, j%5===0?0.55:0.35);
+        }
+      }
+    };
+    const drawAB=(power,step=0.1)=>{
+      const fn=(v)=>P.left+(log10(v)/power)*innerW;
+      for(let i=1;i<=Math.pow(10,power);i*=10){
+        for(let j=1;j<10;j++){
+          const v=i*j;
+          const x=fn(v);
+          if(x<P.left||x>P.left+innerW)continue;
+          drawTick(x, j===1?0.8:(j%5===0?0.55:0.35), j===1?String(v):undefined);
+        }
+      }
+    };
+    const drawL=()=>{
       for(let i=1;i<=10;i++){
-        const x = xFromValue(i);
-        drawTick(x,true,i===10?'1':i);
+        const x=xFrom.L(i);
+        drawTick(x,0.8,log10(i).toFixed(1));
       }
-    }
-    if(lane.key==='CI'){
-      for(let i=1;i<=10;i++){
-        const x = xFromValueInv(i);
-        drawTick(x,true,i===10?'1':i);
-      }
-    }
-    if(lane.key==='A' || lane.key==='B'){
-      for(let i=1;i<=100;i+=10){
-        const x = xFromValueA(i);
-        drawTick(x,true,i);
-      }
-    }
-    if(lane.key==='K'){
-      for(let i=1;i<=1000;i+=100){
-        const x = xFromValueK(i);
-        drawTick(x,true,i);
-      }
-    }
-    if(lane.key==='L'){
-      for(let i=1;i<=10;i++){
-        const x = xFromValueL(i);
-        drawTick(x,true,log10(i).toFixed(1));
-      }
+    };
+
+    switch(lane.key){
+      case 'C': case 'D': drawLog(false,0.1); break;
+      case 'CI': drawLog(true,0.1); break;
+      case 'A': case 'B': drawAB(2); break;
+      case 'K': drawAB(3); break;
+      case 'L': drawL(); break;
+      default: break;
     }
 
     ctx.font='bold 12px system-ui';
-    ctx.textAlign='left';
-    ctx.textBaseline='alphabetic';
-    ctx.fillText(lane.label, P.left, lane.y - lane.h/2 - 4);
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    ctx.fillText(lane.label, P.left, top - 4);
     ctx.restore();
   }
 
-  function drawHair() {
+  function drawHair(){
     ctx.save();
-    ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--hair');
-    ctx.lineWidth = 2;
+    ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');
+    ctx.lineWidth=2;
     ctx.beginPath();
-    ctx.moveTo(hairX, 20);
-    ctx.lineTo(hairX, H - 20);
+    ctx.moveTo(hairX,40);
+    ctx.lineTo(hairX,H-40);
     ctx.stroke();
     ctx.restore();
   }
 
   // Interacción
-  canvas.addEventListener('mousedown', e=>{
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    if(Math.abs(x-hairX)<10){ dragging='hair'; }
-    else if(y>120 && y<250){ dragging='slide'; dragDX = x - slideOffset; }
+  canvas.addEventListener('mousedown',e=>{
+    const r=canvas.getBoundingClientRect();
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    if(Math.abs(x-hairX)<10){dragging='hair';}
+    else if(y>230 && y<400){dragging='slide'; dragDX=x-slideOffset;}
   });
-  canvas.addEventListener('mousemove', e=>{
-    if(!dragging) return;
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left;
-    if(dragging==='hair') hairX = Math.min(W-40, Math.max(40,x));
-    if(dragging==='slide') slideOffset = x - dragDX;
+  canvas.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    const r=canvas.getBoundingClientRect();
+    const x=e.clientX-r.left;
+    if(dragging==='hair') hairX=Math.max(40,Math.min(W-40,x));
+    if(dragging==='slide') slideOffset=x-dragDX;
     drawAll();
   });
-  window.addEventListener('mouseup', ()=>dragging=null);
-  canvas.addEventListener('dblclick', ()=>{
-    slideOffset=0; hairX = P.left + innerW*0.6; drawAll();
+  window.addEventListener('mouseup',()=>dragging=null);
+  canvas.addEventListener('dblclick',()=>{
+    slideOffset=0; hairX=P.left+innerW*0.6; drawAll();
   });
 
   drawAll();
