@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – versión final con límites y guía visual</title>
+<title>Regla de Cálculo Rietz – lecturas corregidas</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – versión final</h1>
+  <h1>Regla de Cálculo Rietz – lecturas corregidas</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="900"></canvas>
     <div class="panel">
@@ -38,10 +38,9 @@
   const P={ left:80, right:40 };
   const innerW=W-P.left-P.right;
   const panel=document.getElementById("values");
-  const deg2rad = d => d * Math.PI / 180;
-  const rad2deg = r => r * 180 / Math.PI;
   const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
 
+  // posiciones verticales
   const lanes=[
     { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)' },
     { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)' },
@@ -50,17 +49,14 @@
     { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)' },
     { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)' },
     { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)' },
-    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin, 5°–90°)' },
-    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeño)' },
-    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan, 5°–45°)' },
   ];
 
-  const slideTop = lanes.find(l=>l.key==='B').y - 30;
-  const slideBottom = lanes.find(l=>l.key==='C').y + 30;
-  const slideMin = -innerW*0.9;
-  const slideMax = innerW*0.9;
-  const hairMin = P.left;
-  const hairMax = P.left + innerW;
+  const slideTop=lanes.find(l=>l.key==='B').y-30;
+  const slideBottom=lanes.find(l=>l.key==='C').y+30;
+  const slideMin=-innerW*0.9;
+  const slideMax=innerW*0.9;
+  const hairMin=P.left;
+  const hairMax=P.left+innerW;
 
   let slideOffset=0;
   let hairX=P.left+innerW*0.6;
@@ -69,15 +65,13 @@
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
+  // Escalas logarítmicas
   const xFrom={
     normal: v=>P.left+log10(clamp(v,1,10))*innerW,
     inv:    v=>P.left+(1-log10(clamp(v,1,10)))*innerW,
     A:      v=>P.left+(log10(clamp(v,1,100))/2)*innerW,
     K:      v=>P.left+(log10(clamp(v,1,1000))/3)*innerW,
     L:      v=>P.left+log10(clamp(v,1,10))*innerW,
-    S:      θ=>P.left+log10(clamp(10*Math.sin(deg2rad(θ)),1,10))*innerW,
-    ST:     θ=>P.left+log10(clamp(10*deg2rad(θ),1,10))*innerW,
-    T:      θ=>P.left+log10(clamp(10*Math.tan(deg2rad(θ)),1,10))*innerW,
   };
 
   const valFrom={
@@ -86,16 +80,13 @@
     A:      x=>clamp(Math.pow(10,2*(x-P.left)/innerW),1,100),
     K:      x=>clamp(Math.pow(10,3*(x-P.left)/innerW),1,1000),
     L:      x=>clamp((x-P.left)/innerW,0,1),
-    S:      x=>rad2deg(Math.asin(clamp(pow10((x-P.left)/innerW)/10,0,1))),
-    ST:     x=>rad2deg(clamp(pow10((x-P.left)/innerW)/10,0,Math.PI/2)),
-    T:      x=>rad2deg(Math.atan(clamp(pow10((x-P.left)/innerW)/10,0,10))),
   };
 
   function drawAll(){
     ctx.clearRect(0,0,W,H);
     drawFixedBody();
     drawSlideBody();
-    drawSlideBoundaries(); // líneas delimitadoras negras
+    drawSlideBoundaries();
     drawHair();
     drawLabels();
     updateReadouts();
@@ -107,6 +98,7 @@
       drawScale(lane,false);
     }
   }
+
   function drawSlideBody(){
     ctx.save();
     ctx.translate(slideOffset,0);
@@ -121,7 +113,6 @@
     ctx.restore();
   }
 
-  // líneas negras de delimitación del bloque móvil
   function drawSlideBoundaries(){
     ctx.save();
     ctx.strokeStyle='#000';
@@ -165,56 +156,14 @@
       }
     };
 
-    const drawLog=(fnInv=false)=>{
-      for(let i=1;i<10;i++){
-        const x=fnInv?xFrom.inv(i):xFrom.normal(i);
-        drawTick(x,0.8,String(i));
-        for(let j=1;j<10;j++){
-          const val=i+j/10; if(val>=10) break;
-          const xs=fnInv?xFrom.inv(val):xFrom.normal(val);
-          drawTick(xs,j%5===0?0.55:0.35);
-        }
+    for(let i=1;i<10;i++){
+      const x=(lane.key==='CI')?xFrom.inv(i):xFrom.normal(i);
+      drawTick(x,0.8,String(i));
+      for(let j=1;j<10;j++){
+        const val=i+j/10; if(val>=10) break;
+        const xs=(lane.key==='CI')?xFrom.inv(val):xFrom.normal(val);
+        drawTick(xs,j%5===0?0.55:0.35);
       }
-    };
-    const drawAB=(power)=>{
-      const fn=(v)=>P.left+(log10(clamp(v,1,Math.pow(10,power)))/power)*innerW;
-      for(let decade=0;decade<power;decade++){
-        const start=Math.pow(10,decade), end=start*10;
-        for(let i=1;i<10;i++){
-          const v=start*i, x=fn(v);
-          drawTick(x,0.8,String(v));
-          for(let j=1;j<10;j++){
-            const vv=v + j*(start/10); if(vv>=end) break;
-            const xs=fn(vv); drawTick(xs,j%5===0?0.55:0.35);
-          }
-        }
-      }
-    };
-    const drawL=()=>{
-      for(let k=0;k<=10;k++){
-        const t=k/10, v=pow10(t), x=xFrom.L(v);
-        drawTick(x,0.8,t.toFixed(1));
-        if(k<10){
-          for(let m=1;m<10;m++){
-            const tSub=t+m/100, vSub=pow10(tSub), xSub=xFrom.L(vSub);
-            drawTick(xSub,m===5?0.55:0.35);
-          }
-        }
-      }
-    };
-    const drawS=()=>{for(let d=5;d<=90;d+=5){const x=xFrom.S(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=90)break;const xs=xFrom.S(dd);drawTick(xs,j===2?0.55:0.35);}}};
-    const drawST=()=>{for(let d=0.5;d<=5.5;d+=0.5){const x=xFrom.ST(d);drawTick(x,0.8,d.toFixed(1));for(let j=1;j<5;j++){const dd=d+j*0.1;if(dd>=5.7)break;const xs=xFrom.ST(dd);drawTick(xs,j===2?0.55:0.35);}}};
-    const drawT=()=>{for(let d=5;d<=45;d+=5){const x=xFrom.T(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=45)break;const xs=xFrom.T(dd);drawTick(xs,j===2?0.55:0.35);}}};
-
-    switch(lane.key){
-      case 'C': case 'D': drawLog(false); break;
-      case 'CI': drawLog(true); break;
-      case 'A': case 'B': drawAB(2); break;
-      case 'K': drawAB(3); break;
-      case 'L': drawL(); break;
-      case 'S': drawS(); break;
-      case 'ST': drawST(); break;
-      case 'T': drawT(); break;
     }
     ctx.restore();
   }
@@ -245,20 +194,22 @@
   function updateReadouts(){
     const data=[];
     for(const lane of lanes){
-      let val=null;
-      const xPos=clamp(hairX-(lane.type==='slide'?slideOffset:0),P.left,P.left+innerW);
-      if(valFrom[lane.key]) val=valFrom[lane.key](xPos);
-      if(typeof val==='number'){
-        if(['S','T','ST'].includes(lane.key)) val=val.toFixed(2)+'°';
-        else if(lane.key==='L') val=val.toFixed(3);
-        else val=Number(val).toPrecision(6);
+      let xPos=hairX;
+      // para escalas deslizantes, ajustar posición relativa
+      if(lane.type==='slide') xPos=hairX-slideOffset;
+      const valFn=valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
+      const val=valFn?valFn(clamp(xPos,P.left,P.left+innerW)):null;
+      let out='–';
+      if(val!==null){
+        if(lane.key==='L') out=val.toFixed(3);
+        else out=val.toPrecision(6);
       }
-      data.push({name:lane.label,val});
+      data.push({name:lane.label,val:out});
     }
     panel.innerHTML=data.map(d=>`<div class="readout"><span>${d.name}</span><span>${d.val}</span></div>`).join('');
   }
 
-  // --- Interacción con límites ---
+  // Interacción con límites
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
@@ -272,7 +223,6 @@
     if(dragging==='hair') hairX=clamp(x,hairMin,hairMax);
     if(dragging==='slide'){
       slideOffset=clamp(x-dragDX,slideMin,slideMax);
-      // Si el reglón llega a los extremos, limita también el pelito al rango visible
       hairX=clamp(hairX,hairMin,hairMax);
     }
     drawAll();
