@@ -70,24 +70,33 @@
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
-  const xFrom={
-    normal: v=>P.left+log10(clamp(v,1,10))*innerW,
-    inv:    v=>P.left+(1-log10(clamp(v,1,10)))*innerW,
-    A:      v=>P.left+(log10(clamp(v,1,100))/2)*innerW,
-    K:      v=>P.left+(log10(clamp(v,1,1000))/3)*innerW,
-    L:      v=>P.left+log10(clamp(v,1,10))*innerW,
-    S:      θ=>P.left+log10(clamp(10*Math.sin(deg2rad(θ)),1,10))*innerW,
-    ST:     θ=>P.left+log10(clamp(10*deg2rad(θ),1,10))*innerW,
-    T:      θ=>P.left+log10(clamp(10*Math.tan(deg2rad(θ)),1,10))*innerW,
-  };
+ // Conversión valor → posición (x)
+const xFrom = {
+  // C, D, etc. (logarítmica normal)
+  normal: v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
+  // CI (inversa)
+  inv:    v => P.left + (1 - ((Math.log10(v) - Math.log10(1)) / (Math.log10(10) - Math.log10(1)))) * innerW,
+  // A (x² → 1–100)
+  A:      v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(100) - Math.log10(1))) * innerW,
+  // K (x³ → 1–1000)
+  K:      v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(1000) - Math.log10(1))) * innerW,
+  // L (lineal 0–1)
+  L:      v => P.left + (v / 1.0) * innerW,
+  // Trigonométricas (ángulo → sin/tan en base 10)
+  S:      θ => P.left + ((Math.log10(10*Math.sin(deg2rad(θ))) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
+  ST:     θ => P.left + ((Math.log10(10*deg2rad(θ)) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
+  T:      θ => P.left + ((Math.log10(10*Math.tan(deg2rad(θ))) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
+};
 
-  const valFrom={
-    normal: x=>clamp(pow10((x-P.left)/innerW),1,10),
-    inv:    x=>clamp(1/pow10((x-P.left)/innerW),1,10),
-    A:      x=>clamp(Math.pow(10,2*(x-P.left)/innerW),1,100),
-    K:      x=>clamp(Math.pow(10,3*(x-P.left)/innerW),1,1000),
-    L:      x=>clamp((x-P.left)/innerW,0,1),
-  };
+// Conversión posición (x) → valor
+const valFrom = {
+  normal: x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(10) - Math.log10(1)) + Math.log10(1)),
+  inv:    x => 1 / Math.pow(10, ((x - P.left) / innerW) * (Math.log10(10) - Math.log10(1)) + Math.log10(1)),
+  A:      x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(100) - Math.log10(1)) + Math.log10(1)),
+  K:      x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(1000) - Math.log10(1)) + Math.log10(1)),
+  L:      x => (x - P.left) / innerW, // lineal 0–1
+};
+
 
   function drawAll(){
     ctx.clearRect(0,0,W,H);
