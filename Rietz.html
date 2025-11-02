@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – trigonométrica corregida</title>
+<title>Regla de Cálculo Rietz – versión estable</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -20,7 +20,7 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – trigonométrica (mapeo corregido)</h1>
+  <h1>Regla de Cálculo Rietz – estable (con límites y lecturas correctas)</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="900"></canvas>
     <div class="panel">
@@ -38,22 +38,21 @@
   const P={ left:80, right:40 };
   const innerW=W-P.left-P.right;
   const panel=document.getElementById("values");
-
   const deg2rad = d => d * Math.PI / 180;
   const rad2deg = r => r * 180 / Math.PI;
+  const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
 
-  // Orden y posiciones (L separada de K; nombres siempre fijos)
   const lanes=[
-    { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)',         tickLabelSide:'bottom' },
-    { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)',             tickLabelSide:'bottom' },
-    { key:'A',  y: 230, h:26, type:'fixed', label:'A (x²)',             tickLabelSide:'bottom' },
-    { key:'B',  y: 305, h:26, type:'slide', label:'B (x²)',             tickLabelSide:'bottom' },
-    { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)',           tickLabelSide:'bottom' },
-    { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)',           tickLabelSide:'bottom' },
-    { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)',           tickLabelSide:'bottom' },
-    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin, 5°–90°)',    tickLabelSide:'bottom' },
-    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeño)',   tickLabelSide:'bottom' },
-    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan, 5°–45°)',    tickLabelSide:'bottom' },
+    { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)' },
+    { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)' },
+    { key:'A',  y: 230, h:26, type:'fixed', label:'A (x²)' },
+    { key:'B',  y: 305, h:26, type:'slide', label:'B (x²)' },
+    { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)' },
+    { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)' },
+    { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)' },
+    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin, 5°–90°)' },
+    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeño)' },
+    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan, 5°–45°)' },
   ];
 
   let slideOffset=0;
@@ -63,29 +62,26 @@
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
-  // --- Mapeos base C/D ---
   const xFrom={
-    normal: v=>P.left+log10(v)*innerW,              // C, D: v in [1,10]
-    inv:    v=>P.left+(1-log10(v))*innerW,          // CI: v in [1,10] but inverted
-    A:      v=>P.left+(log10(v)/2)*innerW,          // A,B: v in [1,100]
-    K:      v=>P.left+(log10(v)/3)*innerW,          // K:   v in [1,1000]
-    L:      v=>P.left+log10(v)*innerW,              // L: v=10^t
-    // --- TRIG: normalizados a la década [1..10] multiplicando por 10 ---
-    S:      θ=>P.left+log10( Math.max(1, Math.min(10, 10*Math.sin(deg2rad(θ))) ) )*innerW,
-    ST:     θ=>P.left+log10( Math.max(1, Math.min(10, 10*deg2rad(θ))) )*innerW,
-    T:      θ=>P.left+log10( Math.max(1, Math.min(10, 10*Math.tan(deg2rad(θ))) ) )*innerW,
+    normal: v=>P.left+log10(clamp(v,1,10))*innerW,
+    inv:    v=>P.left+(1-log10(clamp(v,1,10)))*innerW,
+    A:      v=>P.left+(log10(clamp(v,1,100))/2)*innerW,
+    K:      v=>P.left+(log10(clamp(v,1,1000))/3)*innerW,
+    L:      v=>P.left+log10(clamp(v,1,10))*innerW,
+    S:      θ=>P.left+log10(clamp(10*Math.sin(deg2rad(θ)),1,10))*innerW,
+    ST:     θ=>P.left+log10(clamp(10*deg2rad(θ),1,10))*innerW,
+    T:      θ=>P.left+log10(clamp(10*Math.tan(deg2rad(θ)),1,10))*innerW,
   };
 
   const valFrom={
-    normal: x=>pow10((x-P.left)/innerW),
-    inv:    x=>1/pow10((x-P.left)/innerW),
-    A:      x=>Math.pow(10,2*(x-P.left)/innerW),
-    K:      x=>Math.pow(10,3*(x-P.left)/innerW),
-    L:      x=>(x-P.left)/innerW,
-    // --- inversas trig sobre década normalizada ---
-    S:      x=>{ const v=pow10((x-P.left)/innerW); const s=Math.min(v/10,1); return rad2deg(Math.asin(s)); },
-    ST:     x=>{ const v=pow10((x-P.left)/innerW); const r=v/10; return rad2deg(r); },
-    T:      x=>{ const v=pow10((x-P.left)/innerW); const t=v/10; return rad2deg(Math.atan(t)); },
+    normal: x=>clamp(pow10((x-P.left)/innerW),1,10),
+    inv:    x=>clamp(1/pow10((x-P.left)/innerW),1,10),
+    A:      x=>clamp(Math.pow(10,2*(x-P.left)/innerW),1,100),
+    K:      x=>clamp(Math.pow(10,3*(x-P.left)/innerW),1,1000),
+    L:      x=>clamp((x-P.left)/innerW,0,1),
+    S:      x=>rad2deg(Math.asin(clamp(pow10((x-P.left)/innerW)/10,0,1))),
+    ST:     x=>rad2deg(clamp(pow10((x-P.left)/innerW)/10,0,Math.PI/2)),
+    T:      x=>rad2deg(Math.atan(clamp(pow10((x-P.left)/innerW)/10,0,10))),
   };
 
   function drawAll(){
@@ -147,7 +143,6 @@
       }
     };
 
-    // --- todas las escalas con 10 subdivisiones por década/tramo ---
     const drawLog=(fnInv=false)=>{
       for(let i=1;i<10;i++){
         const x=fnInv?xFrom.inv(i):xFrom.normal(i);
@@ -160,61 +155,35 @@
       }
     };
     const drawAB=(power)=>{
-      const fn=(v)=>P.left+(log10(v)/power)*innerW;
+      const fn=(v)=>P.left+(log10(clamp(v,1,Math.pow(10,power)))/power)*innerW;
       for(let decade=0;decade<power;decade++){
-        const start=Math.pow(10,decade), end=start*10;
+        const start=Math.pow(10,decade);
+        const end=start*10;
         for(let i=1;i<10;i++){
           const v=start*i, x=fn(v);
           drawTick(x,0.8,String(v));
           for(let j=1;j<10;j++){
             const vv=v + j*(start/10); if(vv>=end) break;
-            const xs=fn(vv);
-            drawTick(xs,j%5===0?0.55:0.35);
+            const xs=fn(vv); drawTick(xs,j%5===0?0.55:0.35);
           }
         }
       }
     };
     const drawL=()=>{
       for(let k=0;k<=10;k++){
-        const tMajor=k/10, vMajor=pow10(tMajor), xMajor=xFrom.L(vMajor);
-        drawTick(xMajor,0.8,tMajor.toFixed(1));
+        const t=k/10, v=pow10(t), x=xFrom.L(v);
+        drawTick(x,0.8,t.toFixed(1));
         if(k<10){
           for(let m=1;m<10;m++){
-            const tSub=tMajor+m/100, vSub=pow10(tSub), xSub=xFrom.L(vSub);
+            const tSub=t+m/100, vSub=pow10(tSub), xSub=xFrom.L(vSub);
             drawTick(xSub,m===5?0.55:0.35);
           }
         }
       }
     };
-
-    // --- Trig: ahora en la década [1..10] (visibles) ---
-    const drawS=()=>{ // 5°..90°, marcas cada 5°, subdivisión cada 1°
-      for(let d=5; d<=90; d+=5){
-        const x=xFrom.S(d); drawTick(x,0.8,String(d));
-        for(let j=1;j<5;j++){
-          const dd=d+j; if(dd>=90) break;
-          const xs=xFrom.S(dd); drawTick(xs, j===2?0.55:0.35);
-        }
-      }
-    };
-    const drawST=()=>{ // 0.57°..5.7°, mayores cada 0.5°, subdivisión cada 0.1°
-      for(let d=0.5; d<=5.5; d+=0.5){
-        const x=xFrom.ST(d); drawTick(x,0.8,d.toFixed(1));
-        for(let j=1;j<5;j++){
-          const dd=d+j*0.1; if(dd>=5.7) break;
-          const xs=xFrom.ST(dd); drawTick(xs, j===2?0.55:0.35);
-        }
-      }
-    };
-    const drawT=()=>{ // 5°..45°, mayores cada 5°, subdivisión cada 1°
-      for(let d=5; d<=45; d+=5){
-        const x=xFrom.T(d); drawTick(x,0.8,String(d));
-        for(let j=1;j<5;j++){
-          const dd=d+j; if(dd>=45) break;
-          const xs=xFrom.T(dd); drawTick(xs, j===2?0.55:0.35);
-        }
-      }
-    };
+    const drawS=()=>{for(let d=5;d<=90;d+=5){const x=xFrom.S(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=90)break;const xs=xFrom.S(dd);drawTick(xs,j===2?0.55:0.35);}}};
+    const drawST=()=>{for(let d=0.5;d<=5.5;d+=0.5){const x=xFrom.ST(d);drawTick(x,0.8,d.toFixed(1));for(let j=1;j<5;j++){const dd=d+j*0.1;if(dd>=5.7)break;const xs=xFrom.ST(dd);drawTick(xs,j===2?0.55:0.35);}}};
+    const drawT=()=>{for(let d=5;d<=45;d+=5){const x=xFrom.T(d);drawTick(x,0.8,String(d));for(let j=1;j<5;j++){const dd=d+j;if(dd>=45)break;const xs=xFrom.T(dd);drawTick(xs,j===2?0.55:0.35);}}};
 
     switch(lane.key){
       case 'C': case 'D': drawLog(false); break;
@@ -226,7 +195,6 @@
       case 'ST': drawST(); break;
       case 'T': drawT(); break;
     }
-
     ctx.restore();
   }
 
@@ -260,34 +228,38 @@
       const xPos=hairX-(lane.type==='slide'?slideOffset:0);
       if(valFrom[lane.key]) val=valFrom[lane.key](xPos);
       if(typeof val==='number'){
-        if(['S','T','ST'].includes(lane.key)) val = val.toFixed(2) + '°';
-        else if(lane.key==='L') val = val.toFixed(3);
-        else val = Number(val).toPrecision(6);
+        if(['S','T','ST'].includes(lane.key)) val=val.toFixed(2)+'°';
+        else if(lane.key==='L') val=val.toFixed(3);
+        else val=Number(val).toPrecision(6);
       }
       data.push({name:lane.label,val});
     }
     panel.innerHTML=data.map(d=>`<div class="readout"><span>${d.name}</span><span>${d.val}</span></div>`).join('');
   }
 
-  // Interacción
+  // --- Interacción con límites ---
+  const slideMin=-innerW*0.9, slideMax=innerW*0.9;
+
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left, y=e.clientY-r.top;
     if(Math.abs(x-hairX)<10){ dragging='hair'; }
-    else if(y> (lanes.find(l=>l.key==='B').y-30) && y< (lanes.find(l=>l.key==='C').y+30)){
+    else if(y>(lanes.find(l=>l.key==='B').y-30) && y<(lanes.find(l=>l.key==='C').y+30)){
       dragging='slide'; dragDX=x-slideOffset;
     }
   });
   canvas.addEventListener('mousemove',e=>{
-    if(!dragging) return;
+    if(!dragging)return;
     const r=canvas.getBoundingClientRect();
     const x=e.clientX-r.left;
-    if(dragging==='hair') hairX=Math.max(40,Math.min(W-40,x));
-    if(dragging==='slide') slideOffset=x-dragDX;
+    if(dragging==='hair') hairX=clamp(x,40,W-40);
+    if(dragging==='slide'){
+      slideOffset=clamp(x-dragDX,slideMin,slideMax);
+    }
     drawAll();
   });
   window.addEventListener('mouseup',()=>dragging=null);
-  canvas.addEventListener('dblclick',()=>{ slideOffset=0; hairX=P.left+innerW*0.6; drawAll(); });
+  canvas.addEventListener('dblclick',()=>{slideOffset=0;hairX=P.left+innerW*0.6;drawAll();});
 
   drawAll();
 })();
