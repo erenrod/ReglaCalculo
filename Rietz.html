@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – completa e interactiva</title>
+<title>Regla de Cálculo Rietz – completa y corregida</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -22,7 +22,7 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – completa e interactiva</h1>
+  <h1>Regla de Cálculo Rietz – completa y corregida</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="940"></canvas>
     <div class="panel">
@@ -30,7 +30,7 @@
       <div id="values"></div>
     </div>
   </div>
-  <div class="hint">Puedes mover el pelito o escribir un valor (ej. en D) para posicionarlo.</div>
+  <div class="hint">Puedes mover el pelito o escribir un valor (por ejemplo en D) para posicionarlo.</div>
 
 <script>
 (() => {
@@ -70,33 +70,26 @@
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
- // Conversión valor → posición (x)
-const xFrom = {
-  // C, D, etc. (logarítmica normal)
-  normal: v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
-  // CI (inversa)
-  inv:    v => P.left + (1 - ((Math.log10(v) - Math.log10(1)) / (Math.log10(10) - Math.log10(1)))) * innerW,
-  // A (x² → 1–100)
-  A:      v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(100) - Math.log10(1))) * innerW,
-  // K (x³ → 1–1000)
-  K:      v => P.left + ((Math.log10(v) - Math.log10(1)) / (Math.log10(1000) - Math.log10(1))) * innerW,
-  // L (lineal 0–1)
-  L:      v => P.left + (v / 1.0) * innerW,
-  // Trigonométricas (ángulo → sin/tan en base 10)
-  S:      θ => P.left + ((Math.log10(10*Math.sin(deg2rad(θ))) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
-  ST:     θ => P.left + ((Math.log10(10*deg2rad(θ)) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
-  T:      θ => P.left + ((Math.log10(10*Math.tan(deg2rad(θ))) - Math.log10(1)) / (Math.log10(10) - Math.log10(1))) * innerW,
-};
+  // Conversión valor → posición (x)
+  const xFrom = {
+    normal: v => P.left + ((log10(v) - log10(1)) / (log10(10) - log10(1))) * innerW,
+    inv:    v => P.left + (1 - ((log10(v) - log10(1)) / (log10(10) - log10(1)))) * innerW,
+    A:      v => P.left + ((log10(v) - log10(1)) / (log10(100) - log10(1))) * innerW,
+    K:      v => P.left + ((log10(v) - log10(1)) / (log10(1000) - log10(1))) * innerW,
+    L:      v => P.left + (v / 1.0) * innerW,
+    S:      θ => P.left + ((log10(10*Math.sin(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
+    ST:     θ => P.left + ((log10(10*deg2rad(θ)) - log10(1)) / (log10(10) - log10(1))) * innerW,
+    T:      θ => P.left + ((log10(10*Math.tan(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
+  };
 
-// Conversión posición (x) → valor
-const valFrom = {
-  normal: x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(10) - Math.log10(1)) + Math.log10(1)),
-  inv:    x => 1 / Math.pow(10, ((x - P.left) / innerW) * (Math.log10(10) - Math.log10(1)) + Math.log10(1)),
-  A:      x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(100) - Math.log10(1)) + Math.log10(1)),
-  K:      x => Math.pow(10, ((x - P.left) / innerW) * (Math.log10(1000) - Math.log10(1)) + Math.log10(1)),
-  L:      x => (x - P.left) / innerW, // lineal 0–1
-};
-
+  // Conversión posición (x) → valor
+  const valFrom = {
+    normal: x => pow10(((x - P.left) / innerW) * (log10(10) - log10(1)) + log10(1)),
+    inv:    x => 1 / pow10(((x - P.left) / innerW) * (log10(10) - log10(1)) + log10(1)),
+    A:      x => pow10(((x - P.left) / innerW) * (log10(100) - log10(1)) + log10(1)),
+    K:      x => pow10(((x - P.left) / innerW) * (log10(1000) - log10(1)) + log10(1)),
+    L:      x => (x - P.left) / innerW,
+  };
 
   function drawAll(){
     ctx.clearRect(0,0,W,H);
@@ -114,6 +107,7 @@ const valFrom = {
       drawScale(lane,false);
     }
   }
+
   function drawSlideBody(){
     ctx.save();
     ctx.translate(slideOffset,0);
@@ -147,6 +141,39 @@ const valFrom = {
     ctx.beginPath();
     ctx.roundRect(40,y-h/2,W-80,h,6);
     ctx.fill(); ctx.stroke();
+  }
+
+  // --- Escala L lineal ---
+  function drawL_linear(lane,isSlide){
+    const slideX = isSlide ? slideOffset : 0;
+    const top = lane.y - lane.h/2;
+    const bottom = lane.y + lane.h/2;
+
+    for (let k = 0; k <= 10; k++) {
+      const tMajor = k / 10;
+      const xMajor = P.left + tMajor * innerW;
+      ctx.beginPath();
+      ctx.moveTo(xMajor + slideX, top);
+      ctx.lineTo(xMajor + slideX, top + lane.h * 0.8);
+      ctx.stroke();
+      ctx.font = '11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      const label = (tMajor === 0 || tMajor === 1) ? tMajor.toFixed(0) : tMajor.toFixed(1);
+      ctx.fillText(label, xMajor + slideX, bottom + 2);
+
+      if (k < 10) {
+        for (let m = 1; m < 10; m++) {
+          const tSub = tMajor + m / 100;
+          const xSub = P.left + tSub * innerW;
+          ctx.beginPath();
+          ctx.moveTo(xSub + slideX, top);
+          const len = (m === 5) ? 0.55 : 0.35;
+          ctx.lineTo(xSub + slideX, top + lane.h * len);
+          ctx.stroke();
+        }
+      }
+    }
   }
 
   function drawScale(lane,isSlide){
@@ -183,7 +210,7 @@ const valFrom = {
       }
     };
     const drawAB=(power)=>{
-      const fn=(v)=>P.left+(log10(clamp(v,1,Math.pow(10,power)))/power)*innerW;
+      const fn=(v)=>P.left+((log10(v)-log10(1))/(log10(Math.pow(10,power))-log10(1)))*innerW;
       for(let decade=0;decade<power;decade++){
         const start=Math.pow(10,decade);
         const end=start*10;
@@ -206,7 +233,7 @@ const valFrom = {
       case 'CI': drawLog(true); break;
       case 'A': case 'B': drawAB(2); break;
       case 'K': drawAB(3); break;
-      case 'L': drawLog(false); break;
+      case 'L': drawL_linear(lane,isSlide); break;
       case 'S': drawS(); break;
       case 'ST': drawST(); break;
       case 'T': drawT(); break;
@@ -265,7 +292,6 @@ const valFrom = {
     if(key==='CI') x=xFrom.inv(value);
     else if(key==='A'||key==='K'||key==='L') x=xFrom[key](value);
     else x=xFrom.normal(value);
-
     const lane=lanes.find(l=>l.key===key);
     if(lane?.type==='slide') hairX=clamp(x+slideOffset,hairMin,hairMax);
     else hairX=clamp(x,hairMin,hairMax);
