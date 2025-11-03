@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – Multicursor Total</title>
+<title>Regla de Cálculo Rietz – Final Multicursor</title>
 <style>
-  :root { --bg:#0d1117; --hair:#d41111; --panel-bg:#1b2333; }
+  :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
         display:flex; flex-direction:column; align-items:center; padding:24px; gap:12px;}
   h1{ margin:0; font-size:18px; color:#e8f2ff;}
   .wrapper{ display:flex; gap:24px; align-items:flex-start;}
   canvas{ background:#f8fbff; border-radius:10px; box-shadow:0 6px 30px rgba(0,0,0,.3); display:block;}
-  .panel{ width:330px; background:var(--panel-bg); border-radius:12px; padding:16px;
+  .panel{ width:320px; background:var(--panel-bg); color:#eaf1ff; border-radius:12px; padding:16px;
           box-shadow:0 4px 20px rgba(0,0,0,.3); display:flex; flex-direction:column; gap:10px;}
   .panel h2{ font-size:15px; margin:0 0 6px; text-align:center; color:#5bd4ff;}
   .readout{ display:flex; justify-content:space-between; align-items:center;
@@ -22,7 +22,7 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – Multicursor Total</h1>
+  <h1>Regla de Cálculo Rietz – Final Multicursor</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="940"></canvas>
     <div class="panel">
@@ -32,13 +32,9 @@
       <div class="readout"><span>B (verde)</span><input id="valB" type="number" step="any" value="2"></div>
       <div class="readout"><span>CI (violeta)</span><input id="valCI" type="number" step="any" value="5"></div>
       <div class="readout"><span>C (azul)</span><input id="valC" type="number" step="any" value="3"></div>
-      <div class="readout"><span>L (amarillo)</span><input id="valL" type="number" step="any" value="0.5"></div>
-      <div class="readout"><span>K (naranja)</span><input id="valK" type="number" step="any" value="8"></div>
-      <div class="readout"><span>A (marrón)</span><input id="valA" type="number" step="any" value="4"></div>
-      <div class="readout"><span>D (negro)</span><input id="valD" type="number" step="any" value="6"></div>
     </div>
   </div>
-  <div class="hint">Puedes mover el pelito o marcar posiciones manualmente en cualquier escala.</div>
+  <div class="hint">El pelito es editable arriba. Abajo puedes marcar B, CI y C sin mover el pelito.</div>
 
 <script>
 (() => {
@@ -52,16 +48,16 @@
   const clamp=(v,a,b)=>Math.min(Math.max(v,a),b);
 
   const lanes=[
-    { key:'L',  y:  80,  h:26, type:'fixed' },
-    { key:'K',  y: 155, h:26, type:'fixed' },
-    { key:'A',  y: 230, h:26, type:'fixed' },
-    { key:'B',  y: 305, h:26, type:'slide' },
-    { key:'CI', y: 380, h:26, type:'slide' },
-    { key:'C',  y: 455, h:26, type:'slide' },
-    { key:'D',  y: 530, h:26, type:'fixed' },
-    { key:'S',  y: 620, h:26, type:'fixed' },
-    { key:'ST', y: 680, h:26, type:'fixed' },
-    { key:'T',  y: 740, h:26, type:'fixed' },
+    { key:'L',  y:  80,  h:26, type:'fixed', label:'L (log₁₀)' },
+    { key:'K',  y: 155, h:26, type:'fixed', label:'K (x³)' },
+    { key:'A',  y: 230, h:26, type:'fixed', label:'A (x²)' },
+    { key:'B',  y: 305, h:26, type:'slide', label:'B (x²)' },
+    { key:'CI', y: 380, h:26, type:'slide', label:'CI (1/x)' },
+    { key:'C',  y: 455, h:26, type:'slide', label:'C (×, ÷)' },
+    { key:'D',  y: 530, h:26, type:'fixed', label:'D (×, ÷)' },
+    { key:'S',  y: 620, h:26, type:'fixed', label:'S (sin)' },
+    { key:'ST', y: 680, h:26, type:'fixed', label:'ST (sen pequeñas)' },
+    { key:'T',  y: 740, h:26, type:'fixed', label:'T (tan)' },
   ];
 
   const slideTop=lanes.find(l=>l.key==='B').y-30;
@@ -75,20 +71,27 @@
   let hairX=P.left+innerW*0.6;
   let dragging=null, dragDX=0;
 
+  // Cursores independientes (B, CI, C)
+  let cursorB = 0, cursorCI = 0, cursorC = 0;
+  const valBInput=document.getElementById("valB");
+  const valCIInput=document.getElementById("valCI");
+  const valCInput=document.getElementById("valC");
+
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
+  // Mapeos valor→x (y su inversa)
   const xFrom = {
     normal: v => P.left + ((log10(v) - log10(1)) / (log10(10) - log10(1))) * innerW,
     inv:    v => P.left + (1 - ((log10(v) - log10(1)) / (log10(10) - log10(1)))) * innerW,
     A:      v => P.left + ((log10(v) - log10(1)) / (log10(100) - log10(1))) * innerW,
     K:      v => P.left + ((log10(v) - log10(1)) / (log10(1000) - log10(1))) * innerW,
-    L:      v => P.left + (v / 1.0) * innerW,
+    L:      v => P.left + (v / 1.0) * innerW, // L lineal 0..1
     S:      θ => P.left + ((log10(10*Math.sin(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
-    ST:     θ => {
+    ST:     θ => { // centrada 0.5°..5.7°
       const θmin = 0.5, θmax = 5.7;
-      const val = (deg2rad(θ) - deg2rad(θmin)) / (deg2rad(θmax) - deg2rad(θmin));
-      return P.left + clamp(val, 0, 1) * innerW;
+      const t = (deg2rad(θ) - deg2rad(θmin)) / (deg2rad(θmax) - deg2rad(θmin));
+      return P.left + clamp(t,0,1)*innerW;
     },
     T:      θ => P.left + ((log10(10*Math.tan(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
   };
@@ -101,111 +104,210 @@
     L:      x => (x - P.left) / innerW,
   };
 
-  const inputs = {
-    B: document.getElementById("valB"),
-    CI: document.getElementById("valCI"),
-    C: document.getElementById("valC"),
-    L: document.getElementById("valL"),
-    K: document.getElementById("valK"),
-    A: document.getElementById("valA"),
-    D: document.getElementById("valD")
-  };
-
-  const colors = {
-    B:'#00cc66', CI:'#bb66ff', C:'#0088ff',
-    L:'#ffcc00', K:'#ff8800', A:'#885500', D:'#111'
-  };
-
-  let cursors={};
-
-  function updateCursors(){
-    cursors={
-      B: xFrom.normal(parseFloat(inputs.B.value)||1),
-      CI: xFrom.inv(parseFloat(inputs.CI.value)||1),
-      C: xFrom.normal(parseFloat(inputs.C.value)||1),
-      L: xFrom.L(parseFloat(inputs.L.value)||0),
-      K: xFrom.K(parseFloat(inputs.K.value)||1),
-      A: xFrom.A(parseFloat(inputs.A.value)||1),
-      D: xFrom.normal(parseFloat(inputs.D.value)||1)
-    };
-    drawAll();
-  }
-
-  for(let k in inputs) inputs[k].addEventListener("change",updateCursors);
-
   function drawAll(){
     ctx.clearRect(0,0,W,H);
-    drawTracks();
-    drawCursors();
+    drawFixedBody();
+    drawSlideBody();
+    drawSlideBoundaries();
+    drawAuxCursors();
     drawHair();
+    drawLabels();
     updateReadouts();
   }
 
-  function drawTracks(){
-    ctx.save();ctx.strokeStyle='#cfd6e0';
-    for(const l of lanes){ctx.strokeRect(40,l.y-l.h/2,W-80,l.h);}
+  function drawFixedBody(){
+    for(const lane of lanes.filter(l=>l.type==='fixed')){
+      drawTrack(lane.y,lane.h);
+      drawScale(lane,false);
+    }
+  }
+  function drawSlideBody(){
+    ctx.save();
+    ctx.translate(slideOffset,0);
+    const top=lanes.find(l=>l.key==='B').y-20;
+    const bottom=lanes.find(l=>l.key==='C').y+20;
+    ctx.fillStyle='#fefefe';
+    ctx.fillRect(0,top,W,bottom-top);
+    for(const lane of lanes.filter(l=>l.type==='slide')){
+      drawTrack(lane.y,lane.h);
+      drawScale(lane,true);
+    }
     ctx.restore();
   }
 
-  function drawCursors(){
-    for(const [key,x] of Object.entries(cursors)){
-      const lane=lanes.find(l=>l.key===key);
-      const y=lane.y; const offset=(lane.type==='slide')?slideOffset:0;
-      ctx.save();ctx.strokeStyle=colors[key];ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(x+offset,y-15);ctx.lineTo(x+offset,y+15);ctx.stroke();ctx.restore();
+  function drawSlideBoundaries(){
+    ctx.save();
+    ctx.strokeStyle='#000';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(P.left-20,slideTop);
+    ctx.lineTo(W-P.right+20,slideTop);
+    ctx.moveTo(P.left-20,slideBottom);
+    ctx.lineTo(W-P.right+20,slideBottom);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrack(y,h){
+    ctx.fillStyle='#eef3f8';
+    ctx.strokeStyle='#cfd6e0';
+    ctx.beginPath();
+    ctx.roundRect(40,y-h/2,W-80,h,6);
+    ctx.fill(); ctx.stroke();
+  }
+
+  // Escala L lineal con subdivisiones 0.01
+  function drawL_linear(lane,isSlide){
+    const slideX = isSlide ? slideOffset : 0;
+    const top = lane.y - lane.h/2;
+    const bottom = lane.y + lane.h/2;
+    for (let k=0;k<=10;k++){
+      const t=k/10, x=P.left+t*innerW;
+      tick(x,0.8,(k===0||k===10)?String(k/10):t.toFixed(1));
+      if(k<10){
+        for(let m=1;m<10;m++){
+          const xs=P.left+(t+m/100)*innerW;
+          tick(xs,(m===5)?0.55:0.35);
+        }
+      }
+    }
+    function tick(x,len,label){
+      ctx.beginPath();ctx.moveTo(x+slideX,top);ctx.lineTo(x+slideX,top+lane.h*len);ctx.stroke();
+      if(label!==undefined){ctx.font='11px system-ui';ctx.textAlign='center';ctx.textBaseline='top';
+        ctx.fillText(label,x+slideX,bottom+2);}
     }
   }
 
-  function drawHair(){
-    ctx.save();ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');
-    ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(hairX,40);ctx.lineTo(hairX,H-40);ctx.stroke();ctx.restore();
+  function drawScale(lane,isSlide){
+    const slideX=isSlide?slideOffset:0;
+    const top=lane.y-lane.h/2;
+    const bottom=lane.y+lane.h/2;
+    ctx.save(); ctx.strokeStyle='#1b2430'; ctx.fillStyle='#1b2430'; ctx.lineWidth=1;
+
+    const drawTick=(x,len,label)=>{
+      ctx.beginPath(); ctx.moveTo(x+slideX,top); ctx.lineTo(x+slideX,top+lane.h*len); ctx.stroke();
+      if(label!==undefined){ctx.font='11px system-ui';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(label,x+slideX,bottom+2);}
+    };
+
+    const drawLog=(inv=false)=>{
+      for(let i=1;i<10;i++){const x=inv?xFrom.inv(i):xFrom.normal(i);drawTick(x,0.8,String(i));
+        for(let j=1;j<10;j++){const v=i+j/10;if(v>=10)break;const xs=inv?xFrom.inv(v):xFrom.normal(v);drawTick(xs,j%5===0?0.55:0.35);}}};
+
+    const drawAB=(p)=>{
+      const fn=v=>P.left+((Math.log10(v)-Math.log10(1))/(Math.log10(Math.pow(10,p))-Math.log10(1)))*innerW;
+      for(let d=0;d<p;d++){const s=Math.pow(10,d),e=s*10;
+        for(let i=1;i<10;i++){const v=s*i,x=fn(v);drawTick(x,0.8,String(v));
+          for(let j=1;j<10;j++){const vv=v+j*(s/10);if(vv>=e)break;const xs=fn(vv);drawTick(xs,j%5===0?0.55:0.35);}}}};
+
+    const drawS=()=>{for(let d=5;d<=90;d+=5){const x=xFrom.S(d);drawTick(x,0.8,String(d));
+      for(let j=1;j<5;j++){const dd=d+j;if(dd>=90)break;const xs=xFrom.S(dd);drawTick(xs,j===2?0.55:0.35);}}};
+
+    const drawST=()=>{for(let d=0.5;d<=5.7;d+=0.5){const x=xFrom.ST(d);drawTick(x,0.8,d.toFixed(1));
+      for(let j=1;j<5;j++){const dd=d+j*0.1;if(dd>=5.7)break;const xs=xFrom.ST(dd);drawTick(xs,j===2?0.55:0.35);}}};
+
+    const drawT=()=>{for(let d=5;d<=45;d+=5){const x=xFrom.T(d);drawTick(x,0.8,String(d));
+      for(let j=1;j<5;j++){const dd=d+j;if(dd>=45)break;const xs=xFrom.T(dd);drawTick(xs,j===2?0.55:0.35);}}};
+
+    switch(lane.key){
+      case 'C': case 'D': drawLog(false); break;
+      case 'CI': drawLog(true); break;
+      case 'A': case 'B': drawAB(2); break;
+      case 'K': drawAB(3); break;
+      case 'L': drawL_linear(lane,isSlide); break;
+      case 'S': drawS(); break;
+      case 'ST': drawST(); break;
+      case 'T': drawT(); break;
+    }
+    ctx.restore();
   }
 
+  function drawLabels(){
+    ctx.save(); ctx.fillStyle='#1b2430'; ctx.font='bold 12px system-ui';
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    for(const lane of lanes){
+      const top=lane.y-lane.h/2;
+      ctx.fillText(lane.label,P.left,top-6);
+    }
+    ctx.restore();
+  }
+
+  function drawHair(){
+    ctx.save(); ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue('--hair');
+    ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(hairX,40); ctx.lineTo(hairX,H-40); ctx.stroke(); ctx.restore();
+  }
+
+  // cursores independientes en B, CI, C (se mueven con el reglón)
+  function drawAuxCursors(){
+    const yB=lanes.find(l=>l.key==='B').y;
+    const yCI=lanes.find(l=>l.key==='CI').y;
+    const yC=lanes.find(l=>l.key==='C').y;
+    const draw=(x,color,y)=>{ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(x+slideOffset,y-15);ctx.lineTo(x+slideOffset,y+15);ctx.stroke();ctx.restore();};
+    draw(cursorB,'#00cc66',yB);
+    draw(cursorCI,'#bb66ff',yCI);
+    draw(cursorC,'#0077ff',yC);
+  }
+
+  // Panel del pelito (arriba)
   function updateReadouts(){
-    const showLanes=lanes.filter(l=>!['S','ST','T'].includes(l.key));
-    panel.querySelector("#values").innerHTML=showLanes.map(l=>{
-      let xPos=(l.type==='slide')?hairX-slideOffset:hairX;
-      const valFn=valFrom[(l.key==='CI')?'inv':(l.key==='A'||l.key==='K'||l.key==='L')?l.key:'normal'];
-      const val=valFn(clamp(xPos,P.left,P.left+innerW));
-      const valStr=(l.key==='L')?val.toFixed(3):val.toPrecision(6);
-      return `<div class="readout"><span>${l.key}</span><input type="number" step="any" value="${valStr}" data-key="${l.key}"></div>`;
+    const showLanes = lanes.filter(l=>!['S','ST','T'].includes(l.key));
+    panel.querySelector("#values").innerHTML = showLanes.map(lane=>{
+      let xPos = (lane.type==='slide')?hairX-slideOffset:hairX;
+      const valFn = valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
+      const val = valFn(clamp(xPos,P.left,P.left+innerW));
+      const valStr = (lane.key==='L')?val.toFixed(3):val.toPrecision(6);
+      return `<div class="readout"><span>${lane.label}</span><input type="number" step="any" value="${valStr}" data-key="${lane.key}"></div>`;
     }).join('');
+
     panel.querySelectorAll("#values input").forEach(inp=>{
       inp.addEventListener('change',()=>{
-        const key=inp.dataset.key,value=parseFloat(inp.value);
+        const key=inp.dataset.key;
+        const value=parseFloat(inp.value);
         if(isNaN(value))return;
-        moveHairTo(key,value);
+        moveCursorToValue(key,value);
       });
     });
   }
 
-  function moveHairTo(key,value){
+  function moveCursorToValue(key,value){
     let x;
-    if(key==='CI')x=xFrom.inv(value);
-    else if(key==='A'||key==='K'||key==='L')x=xFrom[key](value);
+    if(key==='CI') x=xFrom.inv(value);
+    else if(key==='A'||key==='K'||key==='L') x=xFrom[key](value);
     else x=xFrom.normal(value);
     const lane=lanes.find(l=>l.key===key);
-    if(lane?.type==='slide')hairX=clamp(x+slideOffset,hairMin,hairMax);
+    if(lane?.type==='slide') hairX=clamp(x+slideOffset,hairMin,hairMax);
     else hairX=clamp(x,hairMin,hairMax);
     drawAll();
   }
 
+  // Actualiza cursores auxiliares cuando cambian los inputs
+  function updateAuxCursors(){
+    cursorB = xFrom.normal(parseFloat(valBInput.value)||1);
+    cursorCI = xFrom.inv(parseFloat(valCIInput.value)||1);
+    cursorC = xFrom.normal(parseFloat(valCInput.value)||1);
+    drawAll();
+  }
+  valBInput.addEventListener("change",updateAuxCursors);
+  valCIInput.addEventListener("change",updateAuxCursors);
+  valCInput.addEventListener("change",updateAuxCursors);
+
+  // Interacción principal
   canvas.addEventListener('mousedown',e=>{
-    const r=canvas.getBoundingClientRect();const x=e.clientX-r.left,y=e.clientY-r.top;
+    const r=canvas.getBoundingClientRect();const x=e.clientX-r.left, y=e.clientY-r.top;
     if(Math.abs(x-hairX)<10){dragging='hair';}
     else if(y>slideTop&&y<slideBottom){dragging='slide';dragDX=x-slideOffset;}
   });
   canvas.addEventListener('mousemove',e=>{
     if(!dragging)return;
     const r=canvas.getBoundingClientRect();const x=e.clientX-r.left;
-    if(dragging==='hair')hairX=clamp(x,hairMin,hairMax);
+    if(dragging==='hair') hairX=clamp(x,hairMin,hairMax);
     if(dragging==='slide'){slideOffset=clamp(x-dragDX,slideMin,slideMax);hairX=clamp(hairX,hairMin,hairMax);}
     drawAll();
   });
   window.addEventListener('mouseup',()=>dragging=null);
   canvas.addEventListener('dblclick',()=>{slideOffset=0;hairX=P.left+innerW*0.6;drawAll();});
 
-  updateCursors();
+  updateAuxCursors();
 })();
 </script>
 </body>
