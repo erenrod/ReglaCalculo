@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Regla de Cálculo Rietz – Final Multicursor</title>
+<title>Regla de Cálculo Rietz – sin cursores B/CI/C</title>
 <style>
   :root { --bg:#0d1117; --ink:#0f172a; --hair:#d41111; --panel-bg:#1b2333; }
   body{ margin:0; background:var(--bg); color:#dbe7ff; font-family:system-ui,sans-serif;
@@ -22,19 +22,15 @@
 </style>
 </head>
 <body>
-  <h1>Regla de Cálculo Rietz – Final Multicursor</h1>
+  <h1>Regla de Cálculo Rietz – sin cursores B/CI/C</h1>
   <div class="wrapper">
     <canvas id="rule" width="1550" height="940"></canvas>
     <div class="panel">
       <h2>Lecturas del pelito</h2>
       <div id="values"></div>
-      <h2>Cursores independientes</h2>
-      <div class="readout"><span>B (verde)</span><input id="valB" type="number" step="any" value="2"></div>
-      <div class="readout"><span>CI (violeta)</span><input id="valCI" type="number" step="any" value="5"></div>
-      <div class="readout"><span>C (azul)</span><input id="valC" type="number" step="any" value="3"></div>
     </div>
   </div>
-  <div class="hint">El pelito es editable arriba. Abajo puedes marcar B, CI y C sin mover el pelito.</div>
+  <div class="hint">Pelito editable: L, K, A, B, CI, C y D (S/ST/T no aparecen en el panel).</div>
 
 <script>
 (() => {
@@ -71,16 +67,10 @@
   let hairX=P.left+innerW*0.6;
   let dragging=null, dragDX=0;
 
-  // Cursores independientes (B, CI, C)
-  let cursorB = 0, cursorCI = 0, cursorC = 0;
-  const valBInput=document.getElementById("valB");
-  const valCIInput=document.getElementById("valCI");
-  const valCInput=document.getElementById("valC");
-
   const log10=x=>Math.log(x)/Math.LN10;
   const pow10=x=>Math.pow(10,x);
 
-  // Mapeos valor→x (y su inversa)
+  // valor → x
   const xFrom = {
     normal: v => P.left + ((log10(v) - log10(1)) / (log10(10) - log10(1))) * innerW,
     inv:    v => P.left + (1 - ((log10(v) - log10(1)) / (log10(10) - log10(1)))) * innerW,
@@ -88,7 +78,8 @@
     K:      v => P.left + ((log10(v) - log10(1)) / (log10(1000) - log10(1))) * innerW,
     L:      v => P.left + (v / 1.0) * innerW, // L lineal 0..1
     S:      θ => P.left + ((log10(10*Math.sin(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
-    ST:     θ => { // centrada 0.5°..5.7°
+    // ST centrada 0.5°..5.7° para que no se vaya a la izquierda
+    ST:     θ => {
       const θmin = 0.5, θmax = 5.7;
       const t = (deg2rad(θ) - deg2rad(θmin)) / (deg2rad(θmax) - deg2rad(θmin));
       return P.left + clamp(t,0,1)*innerW;
@@ -96,6 +87,7 @@
     T:      θ => P.left + ((log10(10*Math.tan(deg2rad(θ))) - log10(1)) / (log10(10) - log10(1))) * innerW,
   };
 
+  // x → valor
   const valFrom = {
     normal: x => pow10(((x - P.left) / innerW) * (log10(10) - log10(1)) + log10(1)),
     inv:    x => 1 / pow10(((x - P.left) / innerW) * (log10(10) - log10(1)) + log10(1)),
@@ -109,7 +101,6 @@
     drawFixedBody();
     drawSlideBody();
     drawSlideBoundaries();
-    drawAuxCursors();
     drawHair();
     drawLabels();
     updateReadouts();
@@ -236,22 +227,10 @@
     ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(hairX,40); ctx.lineTo(hairX,H-40); ctx.stroke(); ctx.restore();
   }
 
-  // cursores independientes en B, CI, C (se mueven con el reglón)
-  function drawAuxCursors(){
-    const yB=lanes.find(l=>l.key==='B').y;
-    const yCI=lanes.find(l=>l.key==='CI').y;
-    const yC=lanes.find(l=>l.key==='C').y;
-    const draw=(x,color,y)=>{ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.moveTo(x+slideOffset,y-15);ctx.lineTo(x+slideOffset,y+15);ctx.stroke();ctx.restore();};
-    draw(cursorB,'#00cc66',yB);
-    draw(cursorCI,'#bb66ff',yCI);
-    draw(cursorC,'#0077ff',yC);
-  }
-
   // Panel del pelito (arriba)
   function updateReadouts(){
     const showLanes = lanes.filter(l=>!['S','ST','T'].includes(l.key));
-    panel.querySelector("#values").innerHTML = showLanes.map(lane=>{
+    panel.innerHTML = showLanes.map(lane=>{
       let xPos = (lane.type==='slide')?hairX-slideOffset:hairX;
       const valFn = valFrom[(lane.key==='CI')?'inv':(lane.key==='A'||lane.key==='K'||lane.key==='L')?lane.key:'normal'];
       const val = valFn(clamp(xPos,P.left,P.left+innerW));
@@ -259,7 +238,7 @@
       return `<div class="readout"><span>${lane.label}</span><input type="number" step="any" value="${valStr}" data-key="${lane.key}"></div>`;
     }).join('');
 
-    panel.querySelectorAll("#values input").forEach(inp=>{
+    panel.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('change',()=>{
         const key=inp.dataset.key;
         const value=parseFloat(inp.value);
@@ -280,17 +259,6 @@
     drawAll();
   }
 
-  // Actualiza cursores auxiliares cuando cambian los inputs
-  function updateAuxCursors(){
-    cursorB = xFrom.normal(parseFloat(valBInput.value)||1);
-    cursorCI = xFrom.inv(parseFloat(valCIInput.value)||1);
-    cursorC = xFrom.normal(parseFloat(valCInput.value)||1);
-    drawAll();
-  }
-  valBInput.addEventListener("change",updateAuxCursors);
-  valCIInput.addEventListener("change",updateAuxCursors);
-  valCInput.addEventListener("change",updateAuxCursors);
-
   // Interacción principal
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();const x=e.clientX-r.left, y=e.clientY-r.top;
@@ -307,7 +275,7 @@
   window.addEventListener('mouseup',()=>dragging=null);
   canvas.addEventListener('dblclick',()=>{slideOffset=0;hairX=P.left+innerW*0.6;drawAll();});
 
-  updateAuxCursors();
+  drawAll();
 })();
 </script>
 </body>
